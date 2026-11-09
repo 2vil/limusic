@@ -18,7 +18,8 @@
 		ArrowDown01Icon,
 		Alert02Icon,
 		LinkSquare02Icon,
-		Download04Icon
+		Download04Icon,
+		ComputerPhoneSyncIcon
 	} from '@hugeicons/core-free-icons';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -39,6 +40,7 @@
 	import Changelog from '$lib/components/Changelog.svelte';
 	import DiscordSettings from '$lib/components/DiscordSettings.svelte';
 	import ScrobbleSettings from '$lib/components/ScrobbleSettings.svelte';
+	import DevicesSettings from '$lib/components/DevicesSettings.svelte';
 	import {
 		updateState,
 		availableMessage,
@@ -51,6 +53,7 @@
 	import { t, setLocale, currentLocale, LOCALES } from '$lib/i18n.svelte';
 	import GlobalHotkeysSettings from '$lib/components/GlobalHotkeysSettings.svelte';
 	import LyricsSourcesSettings from '$lib/components/LyricsSourcesSettings.svelte';
+	import EnhancedLyricsSettings from '$lib/components/EnhancedLyricsSettings.svelte';
 	import LanguagePicker from '$lib/components/LanguagePicker.svelte';
 
 	type TabId =
@@ -60,6 +63,7 @@
 		| 'hotkeys'
 		| 'discord'
 		| 'scrobbling'
+		| 'devices'
 		| 'data'
 		| 'downloads'
 		| 'about';
@@ -70,6 +74,7 @@
 		{ id: 'hotkeys', label: t('settings.tabs.hotkeys'), hint: t('settings.tabs.hotkeys_hint'), icon: KeyboardIcon },
 		{ id: 'discord', label: t('settings.tabs.discord'), hint: t('settings.tabs.discord_hint'), icon: DiscordIcon },
 		{ id: 'scrobbling', label: t('settings.tabs.scrobbling'), hint: t('settings.tabs.scrobbling_hint'), icon: LastFmIcon },
+		{ id: 'devices', label: t('settings.tabs.devices'), hint: t('settings.tabs.devices_hint'), icon: ComputerPhoneSyncIcon },
 		{ id: 'data', label: t('settings.tabs.data'), hint: t('settings.tabs.data_hint'), icon: Database02Icon },
 		{ id: 'downloads', label: t('settings.tabs.downloads'), hint: t('settings.tabs.downloads_hint'), icon: Download04Icon },
 		{ id: 'about', label: t('settings.tabs.about'), hint: t('settings.tabs.about_hint'), icon: InformationCircleIcon }
@@ -144,8 +149,8 @@
 		untrack(() => {
 			// Opened on a section from elsewhere (the lyrics source picker): its tab, scrolled to it
 			// once the tab has rendered. The Last.fm menu and "Edit scrobble" open a whole tab.
-			if (ui.settingsFocus === 'scrobbling') {
-				tab = 'scrobbling';
+			if (ui.settingsFocus === 'scrobbling' || ui.settingsFocus === 'devices') {
+				tab = ui.settingsFocus;
 				ui.settingsFocus = null;
 				load();
 			} else if (ui.settingsFocus) {
@@ -566,6 +571,8 @@
 					<DiscordSettings {settings} />
 				{:else if loaded && tab === 'scrobbling'}
 					<ScrobbleSettings {settings} />
+				{:else if tab === 'devices'}
+					<DevicesSettings />
 				{:else if tab === 'themes'}
 					<AppearanceSettings />
 				{:else}
@@ -762,7 +769,10 @@
 						</section>
 						<section class={GROUP} id="settings-lyrics">
 							<h3 class={LABEL}>{t('settings.sections.lyrics')}</h3>
-							<LyricsSourcesSettings {settings} />
+							<div class="space-y-3">
+								<EnhancedLyricsSettings />
+								<LyricsSourcesSettings {settings} />
+							</div>
 							<div data-settings-card class="mt-3 {CARD}">
 								{@render row({
 									title: t('settings.playback.lyrics_prefer_words'),

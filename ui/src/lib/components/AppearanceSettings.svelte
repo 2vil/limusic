@@ -706,7 +706,6 @@
 		checked={appearance.artworkBackground}
 		onCheckedChange={(on) => setAppearance({ artworkBackground: on })}
 	/>{/snippet}
-
 {#snippet fontSelect(key: FontKey, label: string)}
 	<Select.Root
 		type="single"
