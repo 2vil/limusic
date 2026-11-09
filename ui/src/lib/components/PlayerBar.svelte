@@ -165,11 +165,17 @@
 	data-playing={playback.paused ? 'false' : 'true'}
 	onpointerdown={(e) => (pressedControl = isControl(e.target))}
 	onclick={onBarClick}
-	class="flex items-center gap-2 border-t bg-card px-2 py-2.5 sm:gap-4 sm:px-4 sm:py-3"
+	class="relative flex items-center gap-2 border-t bg-card px-2 py-2 sm:gap-4 sm:px-4 sm:py-3"
 >
-	<!-- Now playing. data-ctx: right-clicking the cover or the title opens the ⋮ menu for the track
-	     that's playing (not the buttons beside them — those keep their own meaning). -->
-	<div class="flex min-w-0 flex-1 items-center gap-3" data-ctx>
+	<!-- Mobile top progress line when mini player is active (< sm) -->
+	{#if !np.open}
+		<div class="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-muted/60 sm:hidden">
+			<div class="h-full bg-primary transition-all duration-150" style="width:{seekPct * 100}%"></div>
+		</div>
+	{/if}
+
+	<!-- Now playing info. On mobile, shown when mini player is active (!np.open); hidden when NowPlaying is open -->
+	<div class="{np.open ? 'hidden sm:flex' : 'flex'} min-w-0 flex-1 items-center gap-2.5 sm:gap-3" data-ctx>
 		{#key playback.now?.videoId}
 			{#if playback.now?.thumbnail}
 				<img
@@ -177,19 +183,19 @@
 					src={thumb(playback.now.thumbnail, 120)}
 					alt=""
 					style="max-width:none"
-					class="h-12 w-12 shrink-0 rounded-lg object-cover"
+					class="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-lg object-cover"
 					in:fade={{ duration: 250 }}
 				/>
 			{:else}
 				<div
 					data-player-art
-					class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground/50"
+					class="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground/50"
 				>
 					<HugeiconsIcon icon={MusicNote01Icon} class="h-5 w-5" />
 				</div>
 			{/if}
 		{/key}
-		<div class="min-w-0">
+		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-1.5">
 				{#snippet title()}
 					<Marquee
@@ -286,15 +292,50 @@
 						playlistId={playback.queue.sourceId}
 						queueIndex={playback.queue.currentIndex}
 						onAdd={() => openAddToPlaylist(currentSong!)}
-						triggerClass="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+						triggerClass="hidden sm:inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
 					/>
 				{/if}
 			</div>
 		{/if}
 	</div>
 
-	<!-- Transport -->
-	<div class="flex flex-[1.5] flex-col items-center gap-1">
+	{#if !np.open}
+		<!-- Mobile mini-player quick controls (< sm) -->
+		<div class="flex items-center gap-1 sm:hidden">
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				onclick={(e) => {
+					e.stopPropagation();
+					api.togglePause();
+				}}
+				aria-label={playback.paused ? t('player.play') : t('player.pause')}
+				class="h-9 w-9"
+			>
+				<HugeiconsIcon
+					icon={PauseIcon}
+					altIcon={PlayIcon}
+					showAlt={playback.paused}
+					class="h-5 w-5"
+				/>
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				onclick={(e) => {
+					e.stopPropagation();
+					api.nextTrack();
+				}}
+				aria-label={t('player.next')}
+				class="h-9 w-9"
+			>
+				<HugeiconsIcon icon={NextIcon} class="h-5 w-5" />
+			</Button>
+		</div>
+	{/if}
+
+	<!-- Transport: on mobile, shown when NowPlaying is open (np.open) or on desktop always (sm:flex) -->
+	<div class="{np.open ? 'flex' : 'hidden sm:flex'} flex-[1.5] flex-col items-center gap-1">
 		<div class="flex items-center gap-1">
 			{#if episode}
 				<SpeedPicker
@@ -408,7 +449,7 @@
 	</div>
 
 	<!-- Volume + queue -->
-	<div class="flex flex-1 items-center justify-end gap-2">
+	<div class="{np.open ? 'flex' : 'hidden sm:flex'} flex-1 items-center justify-end gap-1 sm:gap-2">
 		<!-- Volume is the first control to drop on a narrow window (OS volume still works). -->
 		<div class="hidden items-center gap-1 md:flex">
 			<Button

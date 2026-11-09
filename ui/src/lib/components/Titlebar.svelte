@@ -164,7 +164,7 @@
 			<HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2.5} class="h-5 w-5" />
 		</button>
 		<button
-			class="flex h-full w-9 items-center justify-center text-foreground/80 transition-colors hover:bg-accent/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-25"
+			class="hidden sm:flex h-full w-9 items-center justify-center text-foreground/80 transition-colors hover:bg-accent/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-25"
 			onclick={() => history.forward()}
 			disabled={depth === deepest}
 			title={t('common.forward')}
@@ -177,7 +177,7 @@
 		     home feed: refetching rotates roughly a third of "Quick picks" (#177). Never disabled,
 		     since the page it reloads is always there; the route's own skeletons are the progress. -->
 		<button
-			class="flex h-full w-9 items-center justify-center text-foreground/80 transition-colors hover:bg-accent/10 hover:text-foreground"
+			class="hidden sm:flex h-full w-9 items-center justify-center text-foreground/80 transition-colors hover:bg-accent/10 hover:text-foreground"
 			onclick={refreshView}
 			title={t('common.refresh')}
 			aria-label={t('common.refresh')}
@@ -195,7 +195,7 @@
 		<!-- Paste a YouTube Music link and go to it: the only way into a playlist that is shared by
 		     link and never appears in search or the library (#63). -->
 		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+			class="hidden sm:flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
 			onclick={() => (ui.linkOpen = true)}
 			title={t('dialogs.link.title')}
 			aria-label={t('dialogs.link.title')}
@@ -225,7 +225,7 @@
 
 		<!-- Opens the same modal as the home hero's button (one dialog, mounted in +layout). -->
 		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {lt.role !==
+			class="hidden sm:flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {lt.role !==
 			'none'
 				? 'text-primary'
 				: ''}"
@@ -249,7 +249,7 @@
 		</button>
 
 		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {discordOn
+			class="hidden sm:flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {discordOn
 				? 'text-foreground'
 				: ''}"
 			onclick={toggleDiscord}
@@ -268,7 +268,7 @@
 		</button>
 
 		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {connected
+			class="hidden sm:flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground {connected
 				? 'text-foreground'
 				: ''}"
 			onclick={onScrobblerClick}
@@ -298,7 +298,7 @@
 		     the pair are the same idea in opposite directions (shrink the app / become the screen),
 		     and disabled with nothing playing, since there'd be nothing to show. -->
 		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-25"
+			class="hidden sm:flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-25"
 			onclick={() => (ui.theaterOpen = true)}
 			disabled={!playback.now}
 			title={t('player.theater_mode')}
@@ -311,7 +311,7 @@
 		     It sits with the integrations rather than the window controls because it swaps what
 		     you're using, not the size of this window. -->
 		<button
-			class="flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+			class="hidden sm:flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
 			onclick={openMiniPlayer}
 			title={t('a11y.toggle_mini')}
 			aria-label={t('a11y.toggle_mini')}
@@ -320,12 +320,12 @@
 		</button>
 
 		{#if win.chrome === 'off'}
-			<div class="mx-1.5 h-4 w-px bg-border"></div>
+			<div class="hidden sm:block mx-1.5 h-4 w-px bg-border"></div>
 
 			<!-- Minimize and maximize follow the desktop's button layout (#481). -->
 			{#if win.minimize}
 				<button
-					class="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+					class="hidden sm:flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
 					data-window-control
 					onclick={() => w.minimize()}
 					aria-label={t('common.minimize')}
@@ -335,7 +335,7 @@
 			{/if}
 			{#if win.maximize}
 				<button
-					class="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+					class="hidden sm:flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
 					data-window-control
 					onclick={() => w.toggleMaximize()}
 					aria-label={win.maximized ? t('common.restore') : t('common.maximize')}
@@ -352,7 +352,7 @@
 				</button>
 			{/if}
 			<button
-				class="flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:text-destructive"
+				class="hidden sm:flex h-full w-11 items-center justify-center text-muted-foreground transition-colors hover:text-destructive"
 				data-window-control
 				onclick={() => w.close()}
 				aria-label={t('common.close')}

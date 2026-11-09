@@ -49,7 +49,7 @@ export const playback = $state({
  * "play this" path already goes through this module. The open has to happen at the click: a
  * gapless advance looks exactly like a user play from the `now-playing` event alone.
  */
-export const np = $state({ open: false, tab: 'queue' as 'queue' | 'lyrics' | 'comments' });
+export const np = $state({ open: false, tab: 'track' as 'track' | 'queue' | 'lyrics' | 'comments' });
 
 /**
  * Backend settings the app has to know outside the settings modal (which holds the rest in its own

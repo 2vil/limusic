@@ -48,6 +48,7 @@
 	import { handleImportDrop, initImport } from '$lib/import.svelte';
 	import { initDownloads } from '$lib/download.svelte';
 	import MiniPlayer from '$lib/components/MiniPlayer.svelte';
+	import BottomNav from '$lib/components/BottomNav.svelte';
 	import NowPlaying from '$lib/components/NowPlaying.svelte';
 	import TheaterMode from '$lib/components/TheaterMode.svelte';
 	import VideoSurface from '$lib/components/VideoSurface.svelte';
@@ -120,7 +121,7 @@
 	// A local file has no YouTube comments, and the bar and the view hide their comments buttons for
 	// it, so nothing could close them: comments count as closed. Docked, the panel goes; tabbed, the
 	// view goes back to the tab that was open before comments. Opened again on a YouTube track as usual.
-	let tabBeforeComments = $state<'queue' | 'lyrics'>('queue');
+	let tabBeforeComments = $state<'track' | 'queue' | 'lyrics'>('track');
 	$effect(() => {
 		if (np.tab !== 'comments') tabBeforeComments = np.tab;
 	});
@@ -303,6 +304,9 @@
 					commentsOpen={tabbed ? np.tab === 'comments' : commentsOpen}
 				/>
 			</div>
+		{/if}
+		{#if !np.open}
+			<BottomNav />
 		{/if}
 	</div>
 

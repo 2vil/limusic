@@ -35,7 +35,7 @@
 
 	<!-- Downloads Modal / Panel -->
 	<div
-		class="fixed right-4 top-12 z-50 flex h-[480px] w-96 flex-col rounded-xl border border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
+		class="fixed inset-x-2 top-12 sm:inset-x-auto sm:right-4 z-50 flex h-[480px] sm:w-96 max-w-[calc(100vw-16px)] flex-col rounded-xl border border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
 	>
 		<!-- Header -->
 		<div class="flex items-center justify-between border-b border-border/60 pb-3">

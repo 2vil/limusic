@@ -5,6 +5,7 @@
 	import { HugeiconsIcon } from '@hugeicons/svelte';
 	import {
 		ArrowDown01Icon,
+		ArrowLeft01Icon,
 		FavouriteIcon,
 		Comment01Icon,
 		Maximize01Icon,
@@ -373,17 +374,27 @@
 			? 'flex-1'
 			: `w-full md:w-[22rem] xl:w-[26rem] ${stage ? 'border-l border-foreground/10 bg-background/55' : ''}`} {stage
 			? 'relative z-0'
-			: ''}"
+			: ''} {tabbed && np.tab === 'track' ? 'hidden md:flex' : ''}"
 		data-np-keep
 	>
 		<Tabs.Root
-			value={np.tab}
+			value={np.tab === 'track' ? 'queue' : np.tab}
 			onValueChange={(v) => (np.tab = v as typeof np.tab)}
 			class="min-h-0 flex-1 {stage ? 'gap-0' : ''}"
 		>
 			<div
 				class="flex items-center gap-2 {stage ? 'shrink-0 px-4 pt-3' : ''} {big ? 'justify-end' : ''}"
 			>
+				<!-- Mobile button to go back to track cover view -->
+				<button
+					type="button"
+					onclick={() => (np.tab = 'track')}
+					class="flex size-8 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground md:hidden"
+					aria-label={t('player.song')}
+					title={t('player.song')}
+				>
+					<HugeiconsIcon icon={ArrowLeft01Icon} class="h-4 w-4" />
+				</button>
 				<!-- Same two glyphs the player bar uses for the queue and lyrics buttons. -->
 				<Tabs.List
 					variant={stage ? 'line' : 'default'}
@@ -464,7 +475,7 @@
 	onpointerup={(e) => (releasedKeep = keeps(e.target))}
 	onclick={onBackdropClick}
 	data-np-view
-	class="absolute inset-y-0 left-16 right-0 z-20 flex overflow-hidden inert:bg-background {video.hole
+	class="absolute inset-y-0 left-0 md:left-16 right-0 z-20 flex overflow-hidden inert:bg-background {video.hole
 		? ''
 		: 'bg-background'} {stage ? '' : 'justify-center px-4 py-4 sm:px-6 sm:py-6 lg:px-10'} {ui.sidebarCollapsed
 		? ''
@@ -513,11 +524,11 @@
 		     the picture (-z-10) stays above the room instead of sinking under it. -->
 		{#if !big}
 			<section
-				class="relative z-0 min-w-0 flex-1 flex-col px-6 pt-4 pb-6 lg:px-10 {tabbed
+				class="relative z-0 min-w-0 flex-1 flex-col px-4 sm:px-6 pt-4 pb-6 lg:px-10 {tabbed && np.tab !== 'track'
 					? 'hidden md:flex'
 					: 'flex'}"
 			>
-				<!-- The way out on the left, the Song/Video switch in the middle. -->
+				<!-- The way out on the left, the Song/Video switch in the middle, shortcuts on the right. -->
 				<div class="grid h-10 shrink-0 grid-cols-[1fr_auto_1fr] items-center">
 					<button
 						type="button"
@@ -535,7 +546,30 @@
 							{@render mode(false, t('player.song'))}
 							{@render mode(true, t('player.video'))}
 						</div>
+					{:else}
+						<div></div>
 					{/if}
+					<!-- Mobile quick shortcuts to switch to Lyrics or Queue -->
+					<div class="flex items-center justify-end gap-1 md:hidden">
+						<button
+							type="button"
+							onclick={() => (np.tab = 'lyrics')}
+							class="flex size-9 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+							aria-label={t('player.lyrics')}
+							title={t('player.lyrics')}
+						>
+							<HugeiconsIcon icon={Mic01Icon} class="h-5 w-5" />
+						</button>
+						<button
+							type="button"
+							onclick={() => (np.tab = 'queue')}
+							class="flex size-9 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+							aria-label={t('player.queue')}
+							title={t('player.queue')}
+						>
+							<HugeiconsIcon icon={Queue01Icon} class="h-5 w-5" />
+						</button>
+					</div>
 				</div>
 
 				<!-- A size container, so the picture can be sized against the space actually left
