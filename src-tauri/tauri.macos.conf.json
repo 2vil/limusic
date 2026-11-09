@@ -10,11 +10,11 @@
     "windows": [
       {
         "create": false,
-        "title": "Limusic",
+        "title": "Vibratunes",
         "width": 1200,
         "height": 800,
-        "minWidth": 900,
-        "minHeight": 620,
+        "minWidth": 360,
+        "minHeight": 480,
         "resizable": true,
         "fullscreen": false,
         "visible": false,

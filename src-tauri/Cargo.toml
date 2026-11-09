@@ -1,9 +1,9 @@
 [package]
-name = "limusic-app"
+name = "vibratunes-app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Limusic — desktop YouTube Music client"
+description = "Vibratunes — cross-platform music streaming and offline player"
 rust-version = "1.80"
 
 [lib]

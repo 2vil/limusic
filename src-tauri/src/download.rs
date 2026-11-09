@@ -119,7 +119,7 @@ impl DownloadManager {
                 return p;
             }
         }
-        self.app.path().download_dir().unwrap_or_else(|_| PathBuf::from(".")).join("Limusic")
+        self.app.path().download_dir().unwrap_or_else(|_| PathBuf::from(".")).join("Vibratunes")
     }
 
     pub fn set_download_dir(&self, dir: &str) {
