@@ -13,7 +13,37 @@
 //! `/GenerateIT` hands that attestation an integrity token of the wrong class. See `botguard.rs`
 //! and `progress/KNOWN-ISSUES.md` KI-1.
 
+#[cfg(not(target_os = "android"))]
 mod botguard;
+
+#[cfg(target_os = "android")]
+mod botguard {
+    #[derive(Debug, thiserror::Error)]
+    pub enum Error {
+        #[error("botguard runtime: {0}")]
+        Fatal(String),
+        #[error("botguard: {0}")]
+        Transient(String),
+    }
+
+    pub struct Minter;
+
+    pub struct SpawnedMinter {
+        pub minter: Minter,
+        pub session_token: String,
+        pub lifetime_secs: u64,
+    }
+
+    impl Minter {
+        pub async fn spawn(_ua: String, _session_id: String) -> Result<SpawnedMinter, Error> {
+            Err(Error::Fatal("botguard not supported on android".into()))
+        }
+
+        pub async fn mint(&self, _identifier: &str) -> Result<String, Error> {
+            Err(Error::Fatal("botguard not supported on android".into()))
+        }
+    }
+}
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -99,7 +129,7 @@ impl PoTokenGenerator {
             db,
             minter: Mutex::new(None),
             session_token: Mutex::new(stored),
-            runtime_bad: AtomicBool::new(false),
+            runtime_bad: AtomicBool::new(cfg!(target_os = "android")),
         }
     }
 

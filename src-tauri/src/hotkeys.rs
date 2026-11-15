@@ -10,7 +10,19 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
+#[cfg(desktop)]
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+
+#[cfg(not(desktop))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Shortcut;
+
+#[cfg(not(desktop))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShortcutState {
+    Pressed,
+    Released,
+}
 
 use crate::db::Db;
 use crate::state::AppState;
@@ -73,6 +85,7 @@ pub struct HotkeyRegisterResult {
 /// Parse a stored binding ("Ctrl+Alt+Space") with the plugin's own parser. A bare key is refused:
 /// a global grab on Space or a letter would take that key from every app on the desktop. F-keys
 /// are the exception, nothing types with them.
+#[cfg(desktop)]
 pub fn parse_shortcut(input: &str) -> Result<Shortcut, String> {
     let shortcut: Shortcut = input.trim().parse().map_err(|e| format!("{e}"))?;
     let modified = shortcut.mods.intersects(Modifiers::CONTROL | Modifiers::ALT | Modifiers::SUPER);
@@ -84,6 +97,11 @@ pub fn parse_shortcut(input: &str) -> Result<Shortcut, String> {
         return Err(format!("'{input}' needs Ctrl, Alt or Super"));
     }
     Ok(shortcut)
+}
+
+#[cfg(not(desktop))]
+pub fn parse_shortcut(_input: &str) -> Result<Shortcut, String> {
+    Ok(Shortcut)
 }
 
 /// Manages hotkey registration state and event dispatching.
@@ -98,6 +116,7 @@ impl HotkeysManager {
     }
 
     /// Register all shortcuts from `new_config`, unregistering previous ones.
+    #[cfg(desktop)]
     pub fn apply_config(&self, app: &AppHandle, new_config: HotkeysConfig) -> HotkeyRegisterResult {
         let mut errors = HashMap::new();
         let mut new_registered = HashMap::new();
@@ -156,7 +175,14 @@ impl HotkeysManager {
         HotkeyRegisterResult { success, config: new_config, errors }
     }
 
+    #[cfg(not(desktop))]
+    pub fn apply_config(&self, _app: &AppHandle, new_config: HotkeysConfig) -> HotkeyRegisterResult {
+        *self.config.lock().unwrap() = new_config.clone();
+        HotkeyRegisterResult { success: true, config: new_config, errors: HashMap::new() }
+    }
+
     /// Dispatch triggered shortcut to its bound action.
+    #[cfg(desktop)]
     pub fn handle_event(&self, app: &AppHandle, shortcut: &Shortcut, state: ShortcutState) {
         if state != ShortcutState::Pressed {
             return;
@@ -167,6 +193,9 @@ impl HotkeysManager {
             execute_action(app, *action);
         }
     }
+
+    #[cfg(not(desktop))]
+    pub fn handle_event(&self, _app: &AppHandle, _shortcut: &Shortcut, _state: ShortcutState) {}
 
     pub fn get_config(&self) -> HotkeysConfig {
         self.config.lock().unwrap().clone()

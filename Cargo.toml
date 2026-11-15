@@ -33,3 +33,7 @@ listen-protocol = { path = "crates/listen-protocol" }
 lto = "thin"
 codegen-units = 1
 strip = "symbols"
+
+[patch.crates-io]
+rustypipe-botguard = { path = "crates/rustypipe-botguard" }
+rquickjs-sys = { path = "crates/rquickjs-sys" }

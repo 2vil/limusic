@@ -47,7 +47,9 @@ pub fn show_main(app: &AppHandle) {
     crate::mini::close(app);
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
+        #[cfg(desktop)]
         let _ = w.unminimize();
+        #[cfg(desktop)]
         let _ = w.set_focus();
         set_main_visible(app, true);
     }
@@ -224,7 +226,7 @@ mod imp {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 mod imp {
     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
     use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
@@ -306,6 +308,19 @@ mod imp {
     fn sized(icon: &tauri::image::Image<'_>) -> tauri::image::Image<'static> {
         icon.clone().to_owned()
     }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+mod imp {
+    use tauri::AppHandle;
+
+    pub fn init(_app: &AppHandle) -> tauri::Result<()> {
+        Ok(())
+    }
+
+    pub fn set_playing(_app: &AppHandle, _playing: bool) {}
+
+    pub fn set_icon(_app: &AppHandle, _icon: &tauri::image::Image<'_>) {}
 }
 
 #[cfg(test)]
