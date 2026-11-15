@@ -3,7 +3,6 @@
 	import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/svelte';
 	import {
 		FavouriteIcon,
-		MusicNote01Icon,
 		PlayIcon,
 		PlayListAddIcon,
 		ThumbsDownIcon,
@@ -13,6 +12,7 @@
 		Loading03Icon,
 		CheckmarkCircle02Icon
 	} from '@hugeicons/core-free-icons';
+	import LogoMark from './LogoMark.svelte';
 	import * as api from '$lib/api';
 	import type { SongItem } from '$lib/api';
 	import { downloadSong, getSongDownloadState } from '$lib/download.svelte';
@@ -312,12 +312,12 @@
 				{#if song.thumbnail}
 					<img src={thumb(song.thumbnail, 96, song.video_id)} alt="" class="h-10 w-10 shrink-0 rounded-md object-cover" loading="lazy" />
 				{:else}
-					<!-- An untagged file has no artwork of its own. A music note keeps the row aligned
-					     with its neighbours and says so plainly. -->
+					<!-- An untagged file has no artwork of its own. The logo keeps the row aligned with
+					     its neighbours. -->
 					<div
-						class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground/50"
+						class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground/20"
 					>
-						<HugeiconsIcon icon={MusicNote01Icon} class="h-4 w-4" />
+						<LogoMark class="size-3/4" />
 					</div>
 				{/if}
 			{/if}

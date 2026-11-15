@@ -10,6 +10,7 @@
 		ViewOffSlashIcon
 	} from '@hugeicons/core-free-icons';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import LimusicLoader from '$lib/components/LimusicLoader.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import MediaCardSkeleton from '$lib/components/MediaCardSkeleton.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
@@ -303,13 +304,17 @@
 	// has to watch the ancestor rather than the window.
 	let scroller = $state<HTMLElement | null>(null);
 	let scrolled = $state(false);
+	// On a strip covering the page's first 400px: out of view means scrolled past it. An observer
+	// rather than a scroll listener reading scrollTop, which forced a layout on every scroll event
+	// that found one pending (perf/framecost.py: `jsElement_scrollTop -> updateLayout` in a fifth of
+	// the main thread's samples while Home scrolled on WebKitGTK).
 	function watchScroll(node: HTMLElement) {
 		const el = node.closest('main');
 		if (!el) return;
 		scroller = el;
-		const onScroll = () => (scrolled = el.scrollTop > 400);
-		el.addEventListener('scroll', onScroll, { passive: true });
-		return () => el.removeEventListener('scroll', onScroll);
+		const io = new IntersectionObserver(([e]) => (scrolled = !e.isIntersecting), { root: el });
+		io.observe(node);
+		return () => io.disconnect();
 	}
 
 	// One page per approach to the bottom: the observer only fires when the sentinel *enters* view, so
@@ -371,7 +376,8 @@
 
 <!-- isolate: the header's artwork canvas sits at -z-10 and must stay inside this page, above the
      window's background rather than behind it. -->
-<div class="relative isolate" {@attach watchScroll}>
+<div class="relative isolate">
+	<div class="pointer-events-none absolute inset-x-0 top-0 h-[400px]" {@attach watchScroll}></div>
 	<HomeHero />
 	<!-- The feed's control row: Edit Home, then the mood chips. Sticky, so both
 	     stay reachable while the feed scrolls under them instead of leaving with the header.
@@ -525,13 +531,13 @@
 						</Button>
 					</div>
 				{:else}
-					<!-- Skeletons only while a page is actually in flight; the sentinel above them is what
+					<!-- The loader only while a page is actually in flight; the sentinel above it is what
 					     triggers the fetch when it scrolls into range. -->
 					<div class="flex flex-col gap-12" aria-busy={loadingMore}>
 						<!-- Remounted per page: a page whose shelves home doesn't show leaves the sentinel
 						     in view, and the observer only fires on entering it. -->
 						{#key home.sections.length}<div {@attach sentinel}></div>{/key}
-						{#if loadingMore}{@render shelfSkeletons(2)}{/if}
+						{#if loadingMore}<div class="flex justify-center py-10"><LimusicLoader /></div>{/if}
 					</div>
 				{/if}
 			{/if}

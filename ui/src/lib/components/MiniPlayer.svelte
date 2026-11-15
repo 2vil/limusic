@@ -21,7 +21,6 @@
 		RepeatOne01Icon,
 		ThumbsUpIcon,
 		ThumbsDownIcon,
-		MusicNote01Icon,
 		MaximizeScreenIcon,
 		Mic01Icon,
 		VolumeHighIcon,
@@ -31,6 +30,7 @@
 		GoBackward15SecIcon,
 		GoForward15SecIcon
 	} from '@hugeicons/core-free-icons';
+	import LogoMark from './LogoMark.svelte';
 	import { fade } from 'svelte/transition';
 	import * as api from '$lib/api';
 	import {
@@ -150,10 +150,10 @@
 				/>
 			{:else}
 				<div
-					class="pointer-events-none absolute inset-y-0 left-0 flex w-[88px] items-center justify-center bg-muted text-muted-foreground/50"
+					class="pointer-events-none absolute inset-y-0 left-0 flex w-[88px] items-center justify-center bg-muted text-muted-foreground/20"
 					style="mask-image:linear-gradient(to right,#000 0,#000 65%,transparent 100%);-webkit-mask-image:linear-gradient(to right,#000 0,#000 65%,transparent 100%)"
 				>
-					<HugeiconsIcon icon={MusicNote01Icon} class="h-6 w-6" />
+					<LogoMark class="size-3/4" />
 				</div>
 			{/if}
 		{/key}
@@ -255,7 +255,7 @@
 		     window, so its reply lands nowhere — the rejection is swallowed rather than left dangling.
 		     Compact has no shade over its cover, so the button brings its own. -->
 		<button
-			class="absolute left-2 top-2 z-10 flex size-6 cursor-pointer items-center justify-center rounded-md text-white/60 opacity-0 transition hover:bg-white/15 hover:text-white focus-visible:opacity-100 group-hover:opacity-100 {compact
+			class="absolute left-2 top-2 z-10 flex size-6 cursor-pointer items-center justify-center rounded-md text-white/60 opacity-0 transition hover:bg-white/15 hover:text-white focus-visible:shown group-hover:shown {compact
 				? 'bg-black/40'
 				: ''}"
 			onclick={() => api.closeMini().catch(() => {})}
@@ -434,9 +434,9 @@
 							/>
 						{:else}
 							<div
-								class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground/50"
+								class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground/20"
 							>
-								<HugeiconsIcon icon={MusicNote01Icon} class="h-3 w-3" />
+								<LogoMark class="size-3/4" />
 							</div>
 						{/if}
 						<span class="truncate text-xs">{item.title}</span>

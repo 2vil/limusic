@@ -16,13 +16,13 @@
 		FavouriteIcon,
 		Add01Icon,
 		InfinityIcon,
-		MusicNote01Icon,
 		ArrowUp01Icon,
 		ArrowDown01Icon,
 		PreferenceVerticalIcon,
 		GoBackward15SecIcon,
 		GoForward15SecIcon
 	} from '@hugeicons/core-free-icons';
+	import LogoMark from './LogoMark.svelte';
 	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
@@ -50,7 +50,7 @@
 	import TrackMenu from './TrackMenu.svelte';
 	import DevicePicker from './DevicePicker.svelte';
 	import { link } from '$lib/link.svelte';
-	import { t } from '$lib/i18n.svelte';
+	import { currentLocale, t } from '$lib/i18n.svelte';
 	import LiveBadge from './LiveBadge.svelte';
 
 	let {
@@ -141,6 +141,10 @@
 
 	const onVolume = (e: Event) => dragVolume(Number((e.target as HTMLInputElement).value));
 	const onVolumeCommit = (e: Event) => commitVolume(Number((e.target as HTMLInputElement).value));
+	// "60 %": the number in the locale's digits, then a space the line can't break at (#609).
+	const volumePct = $derived(
+		`${new Intl.NumberFormat(currentLocale.id).format(Math.round(playback.volume))}\u00a0%`
+	);
 
 	const isControl = (t: EventTarget | null) =>
 		!!(t as HTMLElement | null)?.closest?.('button, a, input, [role="button"]');
@@ -192,9 +196,9 @@
 			{:else}
 				<div
 					data-player-art
-					class="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground/50"
+					class="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground/20"
 				>
-					<HugeiconsIcon icon={MusicNote01Icon} class="h-5 w-5" />
+					<LogoMark class="size-3/4" />
 				</div>
 			{/if}
 		{/key}
@@ -463,7 +467,7 @@
 	<div class="{np.open ? 'flex' : 'hidden sm:flex'} flex-1 items-center justify-end gap-1 sm:gap-2">
 		<!-- Volume is the first control to drop on a narrow window (OS volume still works). It is
 		     this desktop's, so it goes while the bar controls a linked device. -->
-		<div class="hidden items-center gap-1 {link.remote ? '' : 'md:flex'}">
+		<div class="group/vol relative hidden items-center gap-1 {link.remote ? '' : 'md:flex'}">
 			<Button
 				variant="ghost"
 				size="icon-sm"
@@ -490,7 +494,16 @@
 				onchange={onVolumeCommit}
 				onwheel={wheelVolume}
 				aria-label={t('player.volume')}
+				aria-valuetext={volumePct}
 			/>
+			<!-- The level as a number while the slider is in use (#609), hidden the rest of the time so
+			     the bar stays quiet. Out of the flow, left of the speaker where the bar is empty: a
+			     reserved width left a gap before the buttons, and one that opens on hover would slide
+			     the slider out from under the pointer. -->
+			<span
+				class="pointer-events-none invisible absolute end-full me-1 whitespace-nowrap text-xs text-muted-foreground tabular-nums group-hover/vol:visible group-focus-within/vol:visible"
+				aria-hidden="true">{volumePct}</span
+			>
 		</div>
 		<!-- One cluster, so they sit tighter to each other than to the volume slider. -->
 		<div class="flex items-center gap-0.5">
@@ -513,10 +526,16 @@
 			<Button
 				variant={lyricsOpen ? 'secondary' : 'ghost'}
 				size="icon-sm"
+				class="relative"
 				onclick={onToggleLyrics}
 				aria-label={t('player.lyrics')}
+				title={playback.karaoke ? t('karaoke.lyrics_hint') : undefined}
 			>
 				<HugeiconsIcon icon={Mic01Icon} class="h-5 w-5" />
+				<!-- Karaoke's switch is in the lyrics footer; the dot says it's on, and where. -->
+				{#if playback.karaoke}
+					<span class="absolute right-1 top-1 size-1.5 rounded-full bg-primary" aria-hidden="true"></span>
+				{/if}
 			</Button>
 			<!-- A local file has no YouTube comment thread to open. -->
 			{#if playback.now && !api.isLocalId(playback.now.videoId)}
