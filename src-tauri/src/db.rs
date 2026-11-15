@@ -1470,7 +1470,10 @@ impl Db {
         Ok(())
     }
 
-    pub fn get_downloaded_track(&self, video_id: &str) -> rusqlite::Result<Option<DownloadedTrack>> {
+    pub fn get_downloaded_track(
+        &self,
+        video_id: &str,
+    ) -> rusqlite::Result<Option<DownloadedTrack>> {
         let conn = self.0.lock().unwrap();
         let mut stmt = conn.prepare_cached(
             "SELECT video_id, title, artist, album, thumbnail, file_path, downloaded_at

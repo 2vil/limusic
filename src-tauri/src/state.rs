@@ -2418,7 +2418,8 @@ impl AppState {
             data.is_video,
             data.is_episode,
         );
-        let offline_thumb = (data.stream_client == "local").then(|| data.thumbnail.clone()).flatten();
+        let offline_thumb =
+            (data.stream_client == "local").then(|| data.thumbnail.clone()).flatten();
         if let Some(thumb) = offline_thumb.as_ref() {
             item.thumbnail = Some(thumb.clone());
         }

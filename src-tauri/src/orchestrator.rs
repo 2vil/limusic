@@ -1047,7 +1047,10 @@ pub fn find_m4a_format(data: &StreamingData) -> Option<&Format> {
     let audio: Vec<&Format> = data
         .adaptive_formats
         .iter()
-        .filter(|f| f.is_audio() && (f.mime_type.contains("mp4a") || matches!(f.itag, 140 | 141 | 139 | 256 | 258)))
+        .filter(|f| {
+            f.is_audio()
+                && (f.mime_type.contains("mp4a") || matches!(f.itag, 140 | 141 | 139 | 256 | 258))
+        })
         .collect();
     if audio.is_empty() {
         return None;

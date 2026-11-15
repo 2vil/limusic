@@ -167,7 +167,12 @@ impl DownloadManager {
         }
     }
 
-    pub fn find_existing_file(&self, title: &str, video_id: &str, subfolder: Option<&str>) -> Option<PathBuf> {
+    pub fn find_existing_file(
+        &self,
+        title: &str,
+        video_id: &str,
+        subfolder: Option<&str>,
+    ) -> Option<PathBuf> {
         let base_name = sanitize_filename(title);
         let exts = ["m4a", "opus"];
         let mut dirs_to_check = Vec::new();
@@ -209,8 +214,12 @@ impl DownloadManager {
                         if meta.len() > 100_000 {
                             use lofty::file::TaggedFileExt;
                             use lofty::tag::Accessor;
-                            if let Ok(tagged) = lofty::probe::Probe::open(&legacy_candidate).and_then(|p| p.read()) {
-                                if let Some(tag) = tagged.primary_tag().or_else(|| tagged.first_tag()) {
+                            if let Ok(tagged) =
+                                lofty::probe::Probe::open(&legacy_candidate).and_then(|p| p.read())
+                            {
+                                if let Some(tag) =
+                                    tagged.primary_tag().or_else(|| tagged.first_tag())
+                                {
                                     if tag.comment().as_deref() == Some(video_id) {
                                         return Some(legacy_candidate);
                                     }
@@ -470,7 +479,9 @@ impl DownloadManager {
         }
 
         // 2. Check if file already exists on disk (e.g. from existing library or prior session)
-        if let Some(existing_file) = self.find_existing_file(&title, &video_id, subfolder.as_deref()) {
+        if let Some(existing_file) =
+            self.find_existing_file(&title, &video_id, subfolder.as_deref())
+        {
             let file_str = existing_file.to_string_lossy().to_string();
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -538,7 +549,10 @@ impl DownloadManager {
         let mgr = Arc::clone(self);
         let task_id = id.clone();
         tauri::async_runtime::spawn(async move {
-            mgr.run_download(task_id, video_id, title, artist, album, thumbnail, is_upload, subfolder).await;
+            mgr.run_download(
+                task_id, video_id, title, artist, album, thumbnail, is_upload, subfolder,
+            )
+            .await;
         });
 
         id
@@ -570,7 +584,11 @@ impl DownloadManager {
                 if self
                     .pending_reductions
                     .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
-                        if v > 0 { Some(v - 1) } else { None }
+                        if v > 0 {
+                            Some(v - 1)
+                        } else {
+                            None
+                        }
                     })
                     .is_ok()
                 {
@@ -586,7 +604,9 @@ impl DownloadManager {
         }
 
         // Before starting any network download, check if file already exists on disk
-        if let Some(existing_file) = self.find_existing_file(&title, &video_id, subfolder.as_deref()) {
+        if let Some(existing_file) =
+            self.find_existing_file(&title, &video_id, subfolder.as_deref())
+        {
             let file_str = existing_file.to_string_lossy().to_string();
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -630,17 +650,15 @@ impl DownloadManager {
         // 1. Resolve stream via orchestrator with respect to disabled stream clients
         let app_state = self.app.state::<crate::state::AppState>();
         let disabled_clients = app_state.disabled_clients();
-        let playback_data = match self
-            .orchestrator
-            .resolve_download(&video_id, is_upload, &disabled_clients)
-            .await
-        {
-            Ok(data) => data,
-            Err(e) => {
-                self.fail_task(&task_id, format!("Failed to resolve stream: {e:?}"));
-                return;
-            }
-        };
+        let playback_data =
+            match self.orchestrator.resolve_download(&video_id, is_upload, &disabled_clients).await
+            {
+                Ok(data) => data,
+                Err(e) => {
+                    self.fail_task(&task_id, format!("Failed to resolve stream: {e:?}"));
+                    return;
+                }
+            };
 
         // 2. Determine file extension: Opus vs M4A with video_id suffix to prevent collisions
         let ext = if is_m4a_itag(playback_data.itag) { "m4a" } else { "opus" };
@@ -725,7 +743,9 @@ impl DownloadManager {
                     );
                     return;
                 }
-                if let Some(cr) = resp.headers().get(reqwest::header::CONTENT_RANGE).and_then(|v| v.to_str().ok()) {
+                if let Some(cr) =
+                    resp.headers().get(reqwest::header::CONTENT_RANGE).and_then(|v| v.to_str().ok())
+                {
                     if let Some(range_part) = cr.strip_prefix("bytes ") {
                         if let Some(dash) = range_part.find('-') {
                             if let Ok(start) = range_part[..dash].trim().parse::<u64>() {
@@ -785,7 +805,10 @@ impl DownloadManager {
                             0
                         };
                         let now_inst = std::time::Instant::now();
-                        if new_pct != last_emitted_pct || now_inst.duration_since(last_emitted_time) >= Duration::from_millis(250) {
+                        if new_pct != last_emitted_pct
+                            || now_inst.duration_since(last_emitted_time)
+                                >= Duration::from_millis(250)
+                        {
                             last_emitted_pct = new_pct;
                             last_emitted_time = now_inst;
                             self.update_task(&task_id, |t| {
@@ -851,7 +874,8 @@ impl DownloadManager {
         });
 
         // Download thumbnail bytes if present (request high-res 1200x1200 master, falling back if needed)
-        let raw_thumb = thumbnail.clone().or_else(|| playback_data.thumbnail.clone()).unwrap_or_default();
+        let raw_thumb =
+            thumbnail.clone().or_else(|| playback_data.thumbnail.clone()).unwrap_or_default();
         let high_res = high_res_cover_url(&raw_thumb);
         let cover_bytes = if !high_res.is_empty() {
             match client.get(&high_res).timeout(Duration::from_secs(15)).send().await {
@@ -859,8 +883,15 @@ impl DownloadManager {
                 _ => {
                     let fallback_url = force_jpeg_url(&raw_thumb);
                     if !fallback_url.is_empty() && fallback_url != high_res {
-                        match client.get(&fallback_url).timeout(Duration::from_secs(15)).send().await {
-                            Ok(r) if r.status().is_success() => r.bytes().await.ok().map(|b| b.to_vec()),
+                        match client
+                            .get(&fallback_url)
+                            .timeout(Duration::from_secs(15))
+                            .send()
+                            .await
+                        {
+                            Ok(r) if r.status().is_success() => {
+                                r.bytes().await.ok().map(|b| b.to_vec())
+                            }
                             _ => None,
                         }
                     } else {

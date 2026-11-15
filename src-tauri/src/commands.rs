@@ -3518,7 +3518,9 @@ pub async fn download_playlist(
         let subfolder = title.or(page.title);
         let count = page.items.len();
         for t in page.items {
-            if !crate::local::is_local_song(&t.video_id) && !state.downloads.is_queued_or_downloaded(&t.video_id) {
+            if !crate::local::is_local_song(&t.video_id)
+                && !state.downloads.is_queued_or_downloaded(&t.video_id)
+            {
                 state.downloads.queue_song(
                     t.video_id,
                     t.title,
@@ -3606,7 +3608,7 @@ pub async fn cancel_download(state: St<'_>, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn cancel_all_downloads(state: St<'_>,) -> Result<(), String> {
+pub async fn cancel_all_downloads(state: St<'_>) -> Result<(), String> {
     state.downloads.cancel_all();
     Ok(())
 }
@@ -3658,7 +3660,9 @@ pub async fn get_downloaded_ids(state: St<'_>) -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-pub async fn get_downloaded_tracks(state: St<'_>) -> Result<Vec<crate::db::DownloadedTrack>, String> {
+pub async fn get_downloaded_tracks(
+    state: St<'_>,
+) -> Result<Vec<crate::db::DownloadedTrack>, String> {
     state.db.get_all_downloaded_tracks().map_err(|e| e.to_string())
 }
 

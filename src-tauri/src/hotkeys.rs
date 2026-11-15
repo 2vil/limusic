@@ -176,7 +176,11 @@ impl HotkeysManager {
     }
 
     #[cfg(not(desktop))]
-    pub fn apply_config(&self, _app: &AppHandle, new_config: HotkeysConfig) -> HotkeyRegisterResult {
+    pub fn apply_config(
+        &self,
+        _app: &AppHandle,
+        new_config: HotkeysConfig,
+    ) -> HotkeyRegisterResult {
         *self.config.lock().unwrap() = new_config.clone();
         HotkeyRegisterResult { success: true, config: new_config, errors: HashMap::new() }
     }
