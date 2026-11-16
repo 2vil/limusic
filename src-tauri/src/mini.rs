@@ -39,6 +39,9 @@ const POS_KEY: &str = "mini_position";
 ///
 /// **Main thread only** — GTK wants window creation there, same rule as the login and cipher
 /// webviews. `commands::open_mini` does the hop.
+// The floating mini player is a desktop window concept; the Android build compiles the command
+// but never opens a widget window.
+#[cfg(desktop)]
 pub fn open(app: &AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window(LABEL) {
         let _ = w.show();
@@ -90,6 +93,12 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
         let _ = main.hide();
         crate::tray::set_main_visible(app, false);
     }
+    Ok(())
+}
+
+// No widget window on mobile: opening the mini player does nothing there.
+#[cfg(not(desktop))]
+pub fn open(_app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 

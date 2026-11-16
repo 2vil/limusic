@@ -953,6 +953,10 @@ pub(crate) fn open_browser(url: &str) -> Result<(), String> {
             Err(std::io::Error::last_os_error())
         }
     };
+    // Android opens links itself; the app never shells out to a browser there.
+    #[cfg(target_os = "android")]
+    let cmd: Result<(), std::io::Error> =
+        Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "no browser opener on android"));
     cmd.map_err(|e| format!("Couldn't open the browser: {e}"))
 }
 

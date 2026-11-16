@@ -3,6 +3,10 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --dir ui dev",
-    "build": "pnpm --dir ui build"
+    "build": "pnpm --dir ui build",
+    "dev:tauri": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo tauri dev",
+    "dev:tauri-android": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo tauri android dev",
+    "build:tauri": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo tauri build",
+    "build:tauri-android": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo tauri android build"
   }
 }

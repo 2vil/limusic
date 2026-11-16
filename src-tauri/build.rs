@@ -18,5 +18,16 @@ fn main() {
     // leaves `generate_context!` emitting the old `default_window_icon` (window, tray, taskbar).
     println!("cargo:rerun-if-changed=icons");
 
+    // Android: libmpv is not a system library there. The playback engine (`libmpv2`) links with a
+    // bare `-lmpv`, so the linker needs the prebuilt arm64 libmpv we ship with the app. The same
+    // directory is `jniLibs`, which Gradle packs into the APK — at load time the Android linker
+    // resolves libmpv and its bundled ffmpeg suite from the APK's own native lib dir.
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
+        let jni_libs = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("gen/android/app/src/main/jniLibs/arm64-v8a");
+        println!("cargo:rustc-link-search=native={}", jni_libs.display());
+        println!("cargo:rerun-if-changed={}", jni_libs.display());
+    }
+
     tauri_build::build()
 }

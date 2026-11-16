@@ -6,7 +6,11 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	server: {
 		port: 5183,
-		strictPort: true
+		strictPort: true,
+		// Listen on all interfaces so `cargo tauri android dev` can reach the dev server from the
+		// phone (the CLI rewrites devUrl to the machine's LAN IP). Desktop keeps working through
+		// localhost:5183.
+		host: true
 	},
 	plugins: [
 		{
