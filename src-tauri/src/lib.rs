@@ -44,6 +44,7 @@ mod stats;
 mod taskbar;
 mod tray;
 mod videoproxy;
+mod warp;
 mod webview;
 mod windowtitle;
 
@@ -444,6 +445,7 @@ fn release_on_destroy(webview: &tauri::Webview) {
 ///
 /// Wayland gives the app no real position and ignores `center`, which is fine: the compositor
 /// places the window there, so the bug cannot happen.
+#[cfg(desktop)]
 fn keep_on_screen(w: &tauri::WebviewWindow) {
     let (Ok(p), Ok(size)) = (w.outer_position(), w.outer_size()) else { return };
     if mini::on_a_display(w, p, size) {
@@ -462,7 +464,6 @@ fn keep_on_screen(w: &tauri::WebviewWindow) {
     }
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Logs to stdout **and** to `<app data>/limusic.log`, truncated each launch (the previous run is
 /// kept as `limusic.log.1`).
 ///
@@ -655,6 +656,9 @@ fn should_start_minimized(db: &Db) -> bool {
 /// Tauri entry point. Applies the platform boot fixes (open-fd limit, NVIDIA/WebKit env), restores
 /// the persisted session, wires every command and plugin, and runs the event loop. context/01
 /// §startup.
+// The mobile entry point must hang on a zero-argument function: the Android glue calls it with
+// no arguments (it used to sit on `init_logging` and the mobile build failed to compile).
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Must happen before any webview exists: the limit is inherited by the web processes WebKit
     // forks, and cannot be raised for them afterwards.
@@ -806,6 +810,8 @@ pub fn run() {
     // the two fight over it, which is what the guard exists to prevent:
     //
     //     LIMUSIC_MULTI=1 XDG_DATA_HOME=/tmp/limusic-b ./target/debug/limusic-app
+    // Desktop only: single-instance has no mobile surface (the OS launches one app instance).
+    #[cfg(desktop)]
     if std::env::var_os("LIMUSIC_MULTI").is_none() {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             tray::show_main(app);
@@ -826,7 +832,7 @@ pub fn run() {
         );
     }
 
-    builder
+    let builder = builder
         // The hidden cipher webview's document (webview.rs). A registered scheme, because a
         // `data:` URL is not a document WebView2 will navigate to.
         .register_uri_scheme_protocol(webview::SCHEME, |_ctx, _req| {
@@ -843,7 +849,12 @@ pub fn run() {
         // (both `execCommand('copy')` and `navigator.clipboard`) behind its own policy, and on
         // Fedora every copy button in the app silently did nothing. The OS clipboard from the app
         // process has no such gate. See ui/src/lib/clipboard.ts.
-        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_clipboard_manager::init());
+
+    // Desktop-only desktop integrations: these three plugins expose no mobile surface (no OS
+    // autostart, no saved window geometry, no global shortcuts on Android).
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart"]),
@@ -870,7 +881,9 @@ pub fn run() {
                     }
                 })
                 .build(),
-        )
+        );
+
+    builder
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -936,6 +949,20 @@ pub fn run() {
                     }
                 });
             // Before the first fetch: the shared client builds itself on first use.
+            // The embedded WARP tunnel (Settings ▸ General, experimental): when it was left on,
+            // stand it up before any client exists, so the very first request already goes through
+            // it. First-ever enable registers with Cloudflare, which can take a few seconds; on
+            // failure fall back to the manual proxy and let the UI's status line say why.
+            let warp_manager = warp::WarpManager::new(handle.clone());
+            let warp_port = if db.get_setting("warp_enabled").as_deref() == Some("true") {
+                // Setup runs before the event loop: a blocking wait is fine, and the tunnel has
+                // to be up before the clients below are built. First-ever enable registers with
+                // Cloudflare, which can take a few seconds.
+                tauri::async_runtime::block_on(warp_manager.start(&db)).ok()
+            } else {
+                None
+            };
+            let proxy = warp_port.map(|p| format!("socks5://127.0.0.1:{p}")).or(proxy);
             http::set_proxy(proxy.as_deref());
             // Built here instead of from the config (`create: false`), because WebView2 only takes
             // a proxy at creation and it isn't known until the database is open (#465).
@@ -943,6 +970,7 @@ pub fn run() {
                 let w =
                     http::proxied(tauri::WebviewWindowBuilder::from_config(&handle, config)?)
                         .build()?;
+                #[cfg(desktop)]
                 keep_on_screen(&w);
             }
             let cookie = db.get_setting("session_cookie").filter(|s| !s.is_empty());
@@ -1062,6 +1090,7 @@ pub fn run() {
                 db.clone(),
                 handle.clone(),
                 orchestrator,
+                warp_manager,
                 lt,
                 link,
                 cache_dir.clone(),
@@ -1091,6 +1120,7 @@ pub fn run() {
             // pointing at nothing. So an installed build repoints an existing entry at itself.
             // Only an existing one: `is_enabled` is false after a Task Manager disable on Windows,
             // and that choice is the user's.
+            #[cfg(desktop)]
             if !tauri::is_dev() {
                 use tauri_plugin_autostart::ManagerExt;
                 let al = app.autolaunch();
@@ -1289,7 +1319,7 @@ pub fn run() {
             // is created undecorated, so this is the one place that reverses it; macOS never gets
             // here, its traffic lights come from `tauri.macos.conf.json`. Done before the SPA shows
             // the window, so the frame is already there rather than popping in.
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(all(desktop, not(target_os = "macos")))]
             if system_titlebar {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.set_decorations(true);
@@ -1550,6 +1580,7 @@ pub fn run() {
             commands::delete_all_downloads,
             commands::get_downloaded_ids,
             commands::get_downloaded_tracks,
+            commands::warp_status,
             commands::log_ui,
         ]))
         .on_window_event(|window, event| {

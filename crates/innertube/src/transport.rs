@@ -181,7 +181,12 @@ struct HealState {
 /// never held across an `.await`, so a std `RwLock` is right (no async lock needed).
 #[derive(Clone)]
 pub struct InnerTube {
-    http: reqwest::Client,
+    /// Shared through an `Arc<RwLock>` so [`Self::set_proxy`] swaps it live and the swap reaches
+    /// every clone (the app clones `InnerTube` into the orchestrator): the embedded WARP tunnel
+    /// toggles the app's proxy mid-session, and in-flight requests keep the client they were
+    /// built on while everything after goes through the new route. `reqwest::Client` snapshots
+    /// proxy config at build time, so a change means building a new one.
+    http: Arc<RwLock<reqwest::Client>>,
     session: Arc<RwLock<Session>>,
     /// "Hide music videos" (off by default): drop non-ATV rows from the surfaces YouTube
     /// generates. Shared like `session` so a settings toggle reaches every clone, and an atomic
@@ -231,7 +236,7 @@ impl InnerTube {
             builder = builder.no_proxy();
         }
         Ok(InnerTube {
-            http: builder.build()?,
+            http: Arc::new(RwLock::new(builder.build()?)),
             session: Arc::new(RwLock::new(session)),
             hide_videos: Arc::new(AtomicBool::new(false)),
             blocked: Arc::new(RwLock::new(BlockList::default())),
@@ -482,8 +487,8 @@ impl InnerTube {
             // Rebuild headers on every iteration so retried requests use the updated session cookie.
             let headers = self.headers(client, set_login);
 
-            let res = self
-                .http
+            let http = self.http.read().unwrap().clone();
+            let res = http
                 .post(&url)
                 .headers(headers)
                 .body(body.clone())
@@ -577,8 +582,8 @@ impl InnerTube {
         if let Ok(v) = HeaderValue::from_str(&body.len().to_string()) {
             headers.insert(reqwest::header::CONTENT_LENGTH, v);
         }
-        let resp = self
-            .http
+        let http = self.http.read().unwrap().clone();
+        let resp = http
             .post(format!("{ORIGIN}/{path}"))
             .headers(headers)
             .body(body)
@@ -630,7 +635,8 @@ impl InnerTube {
 
     /// Bootstrap `visitorData` anonymously by scraping `sw.js_data`. context/04 §A.
     pub async fn fetch_visitor_data(&self) -> Result<String, Error> {
-        let text = self.http.get(SW_JS_DATA_URL).send().await?.error_for_status()?.text().await?;
+        let http = self.http.read().unwrap().clone();
+        let text = http.get(SW_JS_DATA_URL).send().await?.error_for_status()?.text().await?;
         parse_visitor_data(&text)
     }
 
@@ -647,14 +653,37 @@ impl InnerTube {
     ) -> Result<(), Error> {
         let url = build_playback_url(base_url, &client.client_name, cpn, playlist_id);
         let headers = self.headers(client, true);
-        let resp = self.http.get(&url).headers(headers).send().await?.error_for_status()?;
+        let http = self.http.read().unwrap().clone();
+        let resp = http.get(&url).headers(headers).send().await?.error_for_status()?;
         self.absorb_cookies(resp.headers());
         Ok(())
     }
 
+    /// Swap the HTTP client out for one pointed at `proxy` (`None` = direct). Same builder config
+    /// as [`Self::new`]: this is the runtime twin of the constructor's proxy handling, so a
+    /// mid-session change (the app's embedded WARP tunnel) reuses exactly what startup built.
+    /// The old client keeps serving requests already in flight.
+    pub fn set_proxy(&self, proxy: Option<&str>) -> Result<(), Error> {
+        let mut builder = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(30))
+            .timeout(Duration::from_secs(60))
+            .pool_idle_timeout(Duration::from_secs(300))
+            .pool_max_idle_per_host(10);
+        if let Some(p) = proxy {
+            builder = builder.proxy(reqwest::Proxy::all(p)?);
+        }
+        // Tests talk to a server on localhost: a system proxy must not get in the way.
+        #[cfg(test)]
+        {
+            builder = builder.no_proxy();
+        }
+        *self.http.write().unwrap() = builder.build()?;
+        Ok(())
+    }
+
     #[cfg(any(test, feature = "integration-tests"))]
-    pub fn http(&self) -> &reqwest::Client {
-        &self.http
+    pub fn http(&self) -> reqwest::Client {
+        self.http.read().unwrap().clone()
     }
 
     /// Raise the rejection flag and wait for the app's healer to have its go, so the caller can

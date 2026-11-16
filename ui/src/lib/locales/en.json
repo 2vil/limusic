@@ -659,6 +659,13 @@
 			"proxy": "HTTP/HTTPS Proxy",
 			"proxy_hint": "Route all network requests through a custom proxy server.",
 			"proxy_placeholder": "http://host:port (blank = none)",
+			"warp_title": "Embedded WARP tunnel",
+			"warp_tooltip": "Still experimental: routes everything the app fetches through an embedded Cloudflare WARP tunnel, for countries YT Music is not served in. Off by default.",
+			"warp_status_off": "Off",
+			"warp_status_registering": "Registering the device…",
+			"warp_status_connecting": "Connecting…",
+			"warp_status_connected": "Connected — traffic goes through the tunnel",
+			"warp_status_failed": "Failed: {msg}",
 			"stream_clients": "Stream clients",
 			"stream_clients_hint": "Turn a client off to skip it when resolving streams. Overridden by the {var} env var."
 		},

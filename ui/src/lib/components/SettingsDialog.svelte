@@ -40,6 +40,7 @@
 	import * as api from '$lib/api';
 	import { blocked, karaokeAvailability, karaokeConsent, karaokeModels, karaokeSelection, cancelKaraokeModelDownload, deleteKaraokeModel, playback, prefs, refreshLanguage, setAutoplay, ui, toast, unblockArtist, setKaraokeDevice, applyKaraokeStatus, chooseKaraokeModel, refreshKaraokeModels } from '$lib/player.svelte';
 	import { deleteAllDownloads } from '$lib/download.svelte';
+	import { initWarp, setWarpEnabled, warp, warpOn } from '$lib/warp.svelte';
 	import { win } from '$lib/win.svelte';
 	import { lt } from '$lib/lt.svelte';
 	import AppearanceSettings from '$lib/components/AppearanceSettings.svelte';
@@ -406,6 +407,22 @@
 	}
 
 	const quality = $derived(settings.quality ?? 'HIGH');
+	// The embedded WARP tunnel's status line, next to its toggle. The backend drives the state
+	// (`warp-status` events); this only translates it.
+	const warpStatusText = $derived.by(() => {
+		switch (warp.status.status) {
+			case 'off':
+				return t('settings.general.warp_status_off');
+			case 'registering':
+				return t('settings.general.warp_status_registering');
+			case 'connecting':
+				return t('settings.general.warp_status_connecting');
+			case 'connected':
+				return t('settings.general.warp_status_connected');
+			default:
+				return t('settings.general.warp_status_failed', { msg: warp.status.msg });
+		}
+	});
 	const historyOn = $derived(settings.enable_history !== 'false');
 	// On unless turned off: loudness matching is what YTM does, and it's what most people want.
 	// Off gives the untouched master, limiter included (#298, #300).
@@ -1035,6 +1052,12 @@
 									desc: t('settings.general.proxy_hint'),
 									below: proxyForm
 								})}
+								{@render row({
+									title: t('settings.general.warp_title'),
+									desc: warpStatusText,
+									extra: warpBadge,
+									control: warpSwitch
+								})}
 							</div>
 						</section>
 						<section class={GROUP}>
@@ -1231,6 +1254,8 @@
 	/>
 {/snippet}
 
+{#snippet warpSwitch()}<Switch checked={warpOn} onCheckedChange={(v) => void setWarpEnabled(v)} />{/snippet}
+{#snippet warpBadge()}<ExperimentalBadge tooltip={t('settings.general.warp_tooltip')} />{/snippet}
 {#snippet historySwitch()}<Switch checked={historyOn} onCheckedChange={setHistory} />{/snippet}
 {#snippet traySwitch()}<Switch checked={trayOn} onCheckedChange={setTray} />{/snippet}
 {#snippet trackNotificationsSwitch()}<Switch

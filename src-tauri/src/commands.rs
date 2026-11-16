@@ -279,7 +279,7 @@ pub async fn get_queue(state: St<'_>) -> Result<serde_json::Value, String> {
 /// `visitor_data`) and internal blobs (`queue_json`, `queue_index`, `queue_position`) never cross
 /// into the webview: they'd otherwise ship the login credential to the renderer on every open, and
 /// the webview can't overwrite them either.
-const UI_SETTINGS: [&str; 33] = [
+const UI_SETTINGS: [&str; 34] = [
     "volume",
     "proxy",
     "quality",
@@ -288,6 +288,7 @@ const UI_SETTINGS: [&str; 33] = [
     "disabled_stream_clients",
     "discord_rpc",
     "discord_rpc_config",
+    "warp_enabled",
     "close_to_tray",
     "track_notifications",
     "track_notifications_focused",
@@ -516,6 +517,12 @@ pub async fn set_setting(
     // to see it take effect.
     if key == "discord_rpc" {
         state.set_discord_enabled(value == "true");
+    }
+    // The embedded WARP tunnel (`crate::warp`): stood up or torn down at once, so the toggle is
+    // honest about when traffic actually changes route. A failed start leaves the setting on
+    // (a restart will retry) and the error in the status the UI is already listening for.
+    if key == "warp_enabled" {
+        state.warp.set_enabled(&state.db, value == "true").await?;
     }
     // Same reasoning for the card layout: the settings tab previews it live, so the real card has
     // to follow without waiting for the next track.
@@ -854,6 +861,7 @@ pub async fn show_main(state: St<'_>, window: tauri::WebviewWindow) -> Result<bo
         return Ok(false);
     }
     window.show().map_err(|e| e.to_string())?;
+    #[cfg(desktop)]
     window.unminimize().map_err(|e| e.to_string())?;
     window.set_focus().map_err(|e| e.to_string())?;
     crate::tray::set_main_visible(window.app_handle(), true);
@@ -3047,6 +3055,13 @@ pub fn save_diagnostics(app: tauri::AppHandle, state: St<'_>, path: String) -> R
     std::fs::write(&path, crate::diagnostics::report(&app, &state.db)).map_err(|e| e.to_string())
 }
 
+/// The embedded WARP tunnel's state (`crate::warp`), for the Settings toggle's first paint. After
+/// that the `warp-status` event carries every change live.
+#[tauri::command]
+pub fn warp_status(state: St<'_>) -> crate::warp::WarpStatus {
+    state.warp.status()
+}
+
 /// The webview's own errors, into the same log file as everything else. Without this a blank
 /// screen or a rejected `invoke` leaves no trace at all in the log a user hands over.
 #[tauri::command]
@@ -3162,9 +3177,15 @@ pub fn theater_fullscreen(window: tauri::WebviewWindow, on: bool) -> Result<(), 
         return Ok(());
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(all(desktop, not(target_os = "windows")))]
     {
         window.set_fullscreen(on).map_err(|e| e.to_string())
+    }
+    // No window-manager fullscreen on mobile: the command becomes a no-op there.
+    #[cfg(not(desktop))]
+    {
+        let _ = on;
+        Ok(())
     }
     #[cfg(target_os = "windows")]
     {

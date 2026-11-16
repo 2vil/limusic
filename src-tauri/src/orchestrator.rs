@@ -190,6 +190,13 @@ impl Orchestrator {
         }
     }
 
+    /// Re-point the InnerTube transport at a new proxy (`None` = direct). The embedded WARP
+    /// tunnel ([`crate::warp`]) toggles this at runtime; the swap is shared, so it reaches every
+    /// clone of `it` — requests already in flight keep the client they were built on.
+    pub fn set_proxy(&self, proxy: Option<&str>) -> Result<(), innertube::Error> {
+        self.it.set_proxy(proxy)
+    }
+
     /// The picture for `video_id` failed after it was handed out: the `<video>` element errored, or
     /// mpv could not open it. Its next [`resolve_video`](Self::resolve_video) tries VISIONOS first,
     /// and the kept WEB_REMIX reply goes, because the dead URL came out of it. `true` only the

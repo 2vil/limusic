@@ -289,7 +289,7 @@ impl ModelManager {
 
                         emit_runtime_progress(0);
                         let result = karaoke::download::fetch(
-                            crate::http::client(),
+                            &crate::http::client(),
                             &source,
                             &runtime_part,
                             &runtime_archive,
@@ -361,7 +361,7 @@ impl ModelManager {
                                     );
                                 };
                                 tauri::async_runtime::block_on(karaoke::download::fetch_tail(
-                                    crate::http::client(),
+                                    &crate::http::client(),
                                     part_url,
                                     part_hosts,
                                     true,
@@ -404,7 +404,7 @@ impl ModelManager {
                                 let mut throttle = ProgressThrottle::new(Duration::from_millis(250));
                                 let mut fetch_closure = |start: u64, end_inclusive: u64| -> Result<Vec<u8>, karaoke::runtime::Unavailable> {
                                     let res = tauri::async_runtime::block_on(karaoke::download::fetch_range(
-                                        crate::http::client(),
+                                        &crate::http::client(),
                                         part_clone.url,
                                         part_clone.hosts,
                                         true,
@@ -492,7 +492,7 @@ impl ModelManager {
             };
             emit_model_progress(0);
             let result = karaoke::download::fetch(
-                crate::http::client(),
+                &crate::http::client(),
                 &source,
                 &part_path,
                 &final_path,

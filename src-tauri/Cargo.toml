@@ -52,6 +52,15 @@ souvlaki = { version = "0.8.3", default-features = false, features = ["use_zbus"
 # Listen Together: shared wire types + WebSocket client (wss via rustls). context/19.
 listen-protocol = { workspace = true }
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+# Embedded WARP tunnel (src-tauri/src/warp.rs): in-process WireGuard (boringtun + smoltcp userspace
+# TCP stack), with a local no-auth SOCKS5 server in front. The app's whole traffic reaches it
+# through the `proxy` setting; no root, no TUN device, compiles for Android.
+tokio-wireguard = "0.1"
+# boringtun is pinned next to tokio-wireguard's own range so both share one build, and warp.rs
+# uses its x25519 re-exports for the registration keypair.
+boringtun = "0.6"
+fast-socks5 = "1"
+uuid = { version = "1", features = ["v4"] }
 futures-util = { workspace = true }
 rand = { workspace = true }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }

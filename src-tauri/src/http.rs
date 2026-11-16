@@ -13,31 +13,60 @@
 //! `crates/innertube` keeps its own client on purpose. It is the other side of the transport
 //! boundary (context/11) and it configures a proxy per session, which is client-level state.
 
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock, RwLock};
 
 /// Desktop Chrome. YouTube serves the web `player.js` and the BotGuard endpoints against this, so
 /// the cipher fetcher and the PoToken minter both send it.
 pub const WEB_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-static PROXY: OnceLock<String> = OnceLock::new();
+static PROXY: RwLock<Option<String>> = RwLock::new(None);
 
-/// Point this client at the user's proxy. Called once during setup, before anything fetches:
-/// [`client`] reads it when it builds, so a later call changes nothing (the setting already
-/// says "restart to apply").
+/// The shared client lives behind a lock so [`set_proxy`] can swap it live: the embedded WARP
+/// tunnel (`warp.rs`) toggles the proxy at runtime, and every client built off this module must
+/// follow within the same session. `reqwest::Client` snapshots proxy config at build time, so a
+/// change means building a new one; the `Arc` keeps handing out something stable between swaps.
+static CLIENT: OnceLock<RwLock<Arc<reqwest::Client>>> = OnceLock::new();
+
+fn client_slot() -> &'static RwLock<Arc<reqwest::Client>> {
+    CLIENT.get_or_init(|| RwLock::new(Arc::new(build_client(None))))
+}
+
+fn build_client(proxy: Option<&str>) -> reqwest::Client {
+    // No default User-Agent and no default timeout: both are set per request, by the callers
+    // that actually need them.
+    let mut b = reqwest::Client::builder();
+    if let Some(p) = proxy {
+        match reqwest::Proxy::all(p) {
+            Ok(proxy) => b = b.proxy(proxy),
+            // Scheme only: the URI can carry credentials in its userinfo, and this lands in
+            // limusic.log, which is what users attach to bug reports.
+            Err(e) => {
+                let scheme = p.split_once("://").map_or("(none)", |(s, _)| s);
+                tracing::warn!(scheme, "unusable proxy setting, going direct: {e}")
+            }
+        }
+    }
+    b.build().unwrap_or_default()
+}
+
+/// Point the shared client at a proxy. Reads the `proxy` setting once during setup, and again
+/// whenever the embedded WARP tunnel toggles (`warp.rs`): the swap is live, so requests made
+/// after this go through the new route (in-flight ones keep the client they were built on).
 ///
 /// The `proxy` setting used to reach `crates/innertube` alone, which left player.js, the BotGuard
 /// endpoints, lyrics and the music-video proxy going direct (#241).
 pub fn set_proxy(proxy: Option<&str>) {
-    if let Some(p) = proxy.map(str::trim).filter(|p| !p.is_empty()) {
-        let _ = PROXY.set(p.to_owned());
-    }
+    let p = proxy.map(str::trim).filter(|p| !p.is_empty());
+    *PROXY.write().unwrap() = p.map(str::to_owned);
+    let built = Arc::new(build_client(p));
+    *client_slot().write().unwrap() = built;
 }
 
-/// Whether [`client`] was pointed at a user proxy. mpv gets the same setting as its `http-proxy`
+/// Whether [`client`] is pointed at a user proxy. mpv gets the same setting as its `http-proxy`
 /// (#241), and ffmpeg would send a loopback URL through it, so the audio proxy has to stand down
 /// when this is set. See `state::mpv_stream_url`.
 pub fn has_proxy() -> bool {
-    PROXY.get().is_some()
+    PROXY.read().unwrap().is_some()
 }
 
 /// The proxy setting in the one shape a webview takes: `http://` or `socks5://` with an explicit
@@ -47,24 +76,23 @@ pub fn has_proxy() -> bool {
 ///
 /// The webviews load the artwork and the sign-in page themselves, so before this the setting never
 /// reached them and the images broke behind a proxy that only Limusic knew about (#465).
+///
+/// Read live on every window build (webviews are created on demand): a tunnel toggled mid-session
+/// is picked up by the next one.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
 pub fn webview_proxy() -> Option<tauri::Url> {
-    static URL: OnceLock<Option<tauri::Url>> = OnceLock::new();
-    URL.get_or_init(|| {
-        let p = PROXY.get()?;
-        let url = webview_url(p);
-        if url.is_none() {
-            // Scheme only, as in `client`.
-            let scheme = p.split_once("://").map_or("(none)", |(s, _)| s);
-            tracing::warn!(scheme, "webviews need http:// or socks5:// with a port, going direct");
-        }
-        url
-    })
-    .clone()
+    let p = PROXY.read().unwrap().clone()?;
+    let url = webview_url(&p);
+    if url.is_none() {
+        // Scheme only, as in `client`.
+        let scheme = p.split_once("://").map_or("(none)", |(s, _)| s);
+        tracing::warn!(scheme, "webviews need http:// or socks5:// with a port, going direct");
+    }
+    url
 }
 
 #[cfg_attr(target_os = "macos", allow(dead_code))]
-fn webview_url(proxy: &str) -> Option<tauri::Url> {
+pub(crate) fn webview_url(proxy: &str) -> Option<tauri::Url> {
     tauri::Url::parse(proxy).ok().filter(|u| {
         matches!(u.scheme(), "http" | "socks5") && u.host_str().is_some() && u.port().is_some()
     })
@@ -85,25 +113,8 @@ pub fn proxied<'a, R: tauri::Runtime, M: tauri::Manager<R>>(
     b
 }
 
-pub fn client() -> &'static reqwest::Client {
-    static HTTP: OnceLock<reqwest::Client> = OnceLock::new();
-    HTTP.get_or_init(|| {
-        // No default User-Agent and no default timeout: both are set per request, by the callers
-        // that actually need them.
-        let mut b = reqwest::Client::builder();
-        if let Some(p) = PROXY.get() {
-            match reqwest::Proxy::all(p.as_str()) {
-                Ok(proxy) => b = b.proxy(proxy),
-                // Scheme only: the URI can carry credentials in its userinfo, and this lands in
-                // limusic.log, which is what users attach to bug reports.
-                Err(e) => {
-                    let scheme = p.split_once("://").map_or("(none)", |(s, _)| s);
-                    tracing::warn!(scheme, "unusable proxy setting, going direct: {e}")
-                }
-            }
-        }
-        b.build().unwrap_or_default()
-    })
+pub fn client() -> Arc<reqwest::Client> {
+    client_slot().read().unwrap().clone()
 }
 
 /// Whether YouTube Music answers at all. Any status counts, only getting no reply means the
