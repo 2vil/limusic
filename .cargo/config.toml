@@ -17,3 +17,10 @@
 # the startup log. Do NOT read /proc/<pid>/environ: it is the environment the process was *execed*
 # with and is never updated, so nothing `std::env::set_var` does in `run()` ever shows up there,
 # and WebKit's process launcher filters the web process's environment on top of that.
+
+# Cap crate-level parallelism: a full workspace compile saturating every core made the desktop
+# unusable while it ran (2 cores trade compile minutes for a machine that stays responsive).
+# Override per run with `cargo build -j <n>` or `CARGO_BUILD_JOBS=<n>` — this is the default, not
+# a ceiling.
+[build]
+jobs = 2

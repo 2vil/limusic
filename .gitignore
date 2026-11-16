@@ -23,6 +23,7 @@ rustypipe_reports/
 /spikes/
 /.agents/
 /.claude/
+/.zcode/
 /CLAUDE.md
 /PHASE1-PROMPT.md
 /RELEASING.md
