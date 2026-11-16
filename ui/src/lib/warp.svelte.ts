@@ -14,12 +14,16 @@ export function initWarp() {
 	void listen<api.WarpStatus>('warp-status', (e) => (warp.status = e.payload));
 }
 
-/** Whether the switch should read as on: up, or on its way up. */
-export const warpOn = $derived(
-	warp.status.status === 'connected' ||
+/** Whether the switch should read as on: up, or on its way up. A function, not exported
+ * `$derived`: Svelte 5 forbids exporting derived state from a module, and reading `$state`
+ * inside the call is reactive in templates the same way (the `isDownloaded` pattern). */
+export function warpOn(): boolean {
+	return (
+		warp.status.status === 'connected' ||
 		warp.status.status === 'connecting' ||
 		warp.status.status === 'registering'
-);
+	);
+}
 
 /** Optimistic toggle; the `warp-status` events keep the truth flowing in from the backend. */
 export async function setWarpEnabled(on: boolean) {

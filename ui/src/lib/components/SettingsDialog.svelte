@@ -1254,7 +1254,7 @@
 	/>
 {/snippet}
 
-{#snippet warpSwitch()}<Switch checked={warpOn} onCheckedChange={(v) => void setWarpEnabled(v)} />{/snippet}
+{#snippet warpSwitch()}<Switch checked={warpOn()} onCheckedChange={(v) => void setWarpEnabled(v)} />{/snippet}
 {#snippet warpBadge()}<ExperimentalBadge tooltip={t('settings.general.warp_tooltip')} />{/snippet}
 {#snippet historySwitch()}<Switch checked={historyOn} onCheckedChange={setHistory} />{/snippet}
 {#snippet traySwitch()}<Switch checked={trayOn} onCheckedChange={setTray} />{/snippet}
