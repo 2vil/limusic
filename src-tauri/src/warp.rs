@@ -72,16 +72,21 @@ pub enum WarpStatus {
 /// The imported `.conf`, as the engine needs it: a `DNS` line and a `PersistentKeepalive` are
 /// injected when the file ships none. The engine resolves domain targets through the tunnel (its
 /// own smoltcp DNS socket, fed by `DNS`), so a config without one would make every domain connect
-/// fail; and without a keepalive, NAT boxes on flaky networks drop the session silently.
+/// fail; and without a keepalive, NAT boxes on flaky networks drop the session silently. The
+/// injection respects the sections: `DNS` belongs to `[Interface]`, the keepalive to `[Peer]`.
 fn normalize_conf(conf: &str) -> String {
     let mut out = conf.trim().to_owned();
     if !out.contains("DNS") {
+        // Before `[Peer]` so the line lands in `[Interface]`; at the end of the file it would be
+        // a peer key, which the parser would drop.
+        let peer = out.find("[Peer]").unwrap_or(out.len());
+        let (head, tail) = out.split_at(peer);
+        out = format!("{}\nDNS = {FALLBACK_DNS}\n{}", head.trim_end(), tail);
+    }
+    if !out.contains("PersistentKeepalive") {
         if !out.ends_with('\n') {
             out.push('\n');
         }
-        out.push_str(&format!("DNS = {FALLBACK_DNS}\n"));
-    }
-    if !out.contains("PersistentKeepalive") {
         out.push_str(&format!("PersistentKeepalive = {KEEPALIVE_SECS}\n"));
     }
     out
@@ -456,7 +461,12 @@ mod tests {
 
     #[test]
     fn normalize_leaves_complete_configs_alone() {
-        let conf = format!("{}\nDNS = 9.9.9.9\nPersistentKeepalive = 15\n", sample_conf());
+        // DNS belongs to [Interface]; the keepalive to [Peer] — same placement the injector uses.
+        let conf = sample_conf().replace(
+            "Address = 172.16.0.2/32",
+            "Address = 172.16.0.2/32\nDNS = 9.9.9.9",
+        );
+        let conf = format!("{conf}\nPersistentKeepalive = 15\n");
         let config = Config::parse(&normalize_conf(&conf)).expect("parses");
         assert!(config.interface.dns.contains(&"9.9.9.9".parse().unwrap()));
         assert_eq!(config.peers[0].persistent_keepalive, Some(15));
