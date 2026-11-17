@@ -34,6 +34,7 @@ use fast_socks5::util::target_addr::TargetAddr;
 use fast_socks5::{ReplyError, Socks5Command};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tokio_wireguard::config::{Config, Interface as WgInterface, Peer};
@@ -51,6 +52,9 @@ const KEEPALIVE_SECS: u16 = 25;
 /// Base port for the local SOCKS5 listener. Picked once so the webview proxy URL is stable across
 /// launches; on a collision the next few ports are tried before giving up.
 const SOCKS_PORT_BASE: u16 = 51879;
+/// Base port for the local HTTP CONNECT proxy, which exists for mpv: libavformat only speaks
+/// `http://` proxies (see `player::set_http_proxy`), so the streams front is this one, not SOCKS.
+const HTTP_PORT_BASE: u16 = 51890;
 /// How many ports past the base [`start_tunnel`] will try before failing.
 const SOCKS_PORT_ATTEMPTS: u16 = 5;
 
@@ -164,7 +168,8 @@ pub struct WarpManager {
 
 struct Tunnel {
     shutdown: watch::Sender<bool>,
-    port: u16,
+    socks_port: u16,
+    http_port: u16,
 }
 
 impl WarpManager {
@@ -203,9 +208,9 @@ impl WarpManager {
     }
 
     /// Register (first enable only), stand the tunnel up and point the whole app at it. Returns
-    /// the SOCKS5 port the tunnel ended up on. Fails without touching the proxy, so a broken
-    /// tunnel never takes playback down with it.
-    pub async fn start(&self, db: &Db) -> Result<u16, String> {
+    /// the `(SOCKS5 port, HTTP proxy port)` the tunnel ended up on. Fails without touching the
+    /// proxy, so a broken tunnel never takes playback down with it.
+    pub async fn start(&self, db: &Db) -> Result<(u16, u16), String> {
         self.set_status(WarpStatus::Registering);
         let device =
             match db.get_setting("warp_device_json").as_deref().and_then(WarpDevice::from_json) {
@@ -228,42 +233,62 @@ impl WarpManager {
             msg
         })?;
 
-        let port = tunnel.port;
-        apply_proxy(self.app.clone(), Some(&socks_url(port)));
+        let (socks_port, http_port) = (tunnel.socks_port, tunnel.http_port);
+        apply_tunnel_proxy(self.app.clone(), socks_port, http_port);
         *self.tunnel.lock().unwrap() = Some(tunnel);
         self.set_status(WarpStatus::Connected);
-        Ok(port)
+        Ok((socks_port, http_port))
     }
 
     /// Tear the tunnel down and put the manual `proxy` setting (or "direct") back.
     pub async fn stop(&self, db: &Db) {
         if let Some(tunnel) = self.tunnel.lock().unwrap().take() {
             let _ = tunnel.shutdown.send(true);
-            apply_proxy(self.app.clone(), db.get_setting("proxy").as_deref());
+            apply_manual_proxy(self.app.clone(), db.get_setting("proxy").as_deref());
         }
         self.set_status(WarpStatus::Off);
     }
 }
 
-/// The proxy URL the app's plumbing is pointed at while the tunnel is up. `socks5://`, not
-/// `socks5h://`: reqwest resolves DNS locally and hands the proxy an IP (see the module doc), and
-/// the webview side only accepts this scheme shape (`http::webview_url`).
-fn socks_url(port: u16) -> String {
+/// The proxy URL the API clients and the webviews are pointed at while the tunnel is up.
+/// `socks5://`, not `socks5h://`: reqwest resolves DNS locally and hands the proxy an IP (see the
+/// module doc), and the webview side only accepts this scheme shape (`http::webview_url`).
+pub(crate) fn socks_url(port: u16) -> String {
     format!("socks5://127.0.0.1:{port}")
 }
 
-/// One place knows how to re-point the whole app: the shared reqwest client pool (`http.rs`),
-/// mpv's own http proxy, and the InnerTube transport behind the orchestrator. The state may not
-/// be around during early startup (the tunnel starts before `AppState` is managed) — then
-/// whoever builds the clients next reads the current setting anyway.
-fn apply_proxy(app: AppHandle, proxy: Option<&str>) {
+/// The proxy URL mpv is pointed at: libavformat only speaks `http://` proxies, so the streams go
+/// through the HTTP CONNECT front, not SOCKS.
+pub(crate) fn http_url(port: u16) -> String {
+    format!("http://127.0.0.1:{port}")
+}
+
+/// One place knows how to re-point the whole app at the tunnel: the shared reqwest client pool
+/// (`http.rs`), mpv's own http proxy (HTTP CONNECT front — see [`http_url`]), and the InnerTube
+/// transport behind the orchestrator.
+fn apply_tunnel_proxy(app: AppHandle, socks: u16, http: u16) {
+    let socks_url = socks_url(socks);
+    crate::http::set_proxy(Some(&socks_url));
+    if let Some(state) = app.try_state::<Arc<crate::state::AppState>>() {
+        if let Err(e) = state.player.set_http_proxy(Some(&http_url(http))) {
+            tracing::warn!("mpv did not take the new proxy: {e}");
+        }
+        if let Err(e) = state.orchestrator.set_proxy(Some(&socks_url)) {
+            tracing::warn!("the InnerTube transport did not take the new proxy: {e}");
+        }
+    }
+}
+
+/// The tunnel's mirror image: everything back onto the user's manual `proxy` setting (or direct).
+/// Same plumbing, so the restore is as complete as the switch.
+fn apply_manual_proxy(app: AppHandle, proxy: Option<&str>) {
     crate::http::set_proxy(proxy);
     if let Some(state) = app.try_state::<Arc<crate::state::AppState>>() {
         if let Err(e) = state.player.set_http_proxy(proxy) {
-            tracing::warn!("mpv did not take the new proxy: {e}");
+            tracing::warn!("mpv did not take the restored proxy: {e}");
         }
         if let Err(e) = state.orchestrator.set_proxy(proxy) {
-            tracing::warn!("the InnerTube transport did not take the new proxy: {e}");
+            tracing::warn!("the InnerTube transport did not take the restored proxy: {e}");
         }
     }
 }
@@ -370,9 +395,21 @@ fn civil_from_unix(secs: u64) -> (i64, u32, u32, u32, u32, u32) {
     (y, m, d, (rem / 3600) as u32, ((rem % 3600) / 60) as u32, (rem % 60) as u32)
 }
 
-/// Build the WireGuard interface, open the SOCKS5 listener (with the small port fallback) and
-/// hand the accept loop a shutdown channel. The accept loop runs for the tunnel's lifetime; the
-/// caller only keeps the handle.
+/// Bind the first free port in a small range: the bases are picked so collisions need a second
+/// tunnel from something else, but the machine may hold another one of ours from a crashed run.
+async fn bind_first_free(base: u16) -> Option<(TcpListener, u16)> {
+    for i in 0..SOCKS_PORT_ATTEMPTS {
+        let bind: SocketAddr = format!("127.0.0.1:{}", base + i).parse().expect("static bind");
+        if let Ok(listener) = TcpListener::bind(bind).await {
+            return Some((listener, bind.port()));
+        }
+    }
+    None
+}
+
+/// Build the WireGuard interface, open both front-end listeners (SOCKS5 for the API clients and
+/// webviews, HTTP CONNECT for mpv) and hand the accept loops a shutdown channel. The loops run
+/// for the tunnel's lifetime; the caller only keeps the handle.
 async fn start_tunnel(device: &WarpDevice) -> Result<Tunnel, String> {
     let config = device.config()?;
     let interface = config
@@ -381,32 +418,47 @@ async fn start_tunnel(device: &WarpDevice) -> Result<Tunnel, String> {
         .map_err(|e| format!("could not bring the WireGuard interface up: {e}"))?;
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
-    for attempt in 0..SOCKS_PORT_ATTEMPTS {
-        let bind: SocketAddr = format!("127.0.0.1:{}", SOCKS_PORT_BASE + attempt)
-            .parse()
-            .expect("static bind address");
-        let Ok(listener) = TcpListener::bind(bind).await else {
-            continue;
-        };
-        tracing::info!("WARP tunnel up, SOCKS5 listening on {bind}");
-        let iface = interface.clone();
-        tokio::spawn(serve_socks(listener, iface, shutdown_rx));
-        return Ok(Tunnel { shutdown: shutdown_tx, port: bind.port() });
-    }
-    Err(format!(
-        "no free port for the SOCKS5 listener in {SOCKS_PORT_BASE}..{}",
-        SOCKS_PORT_BASE + SOCKS_PORT_ATTEMPTS
-    ))
+    let (socks_listener, socks_port) = bind_first_free(SOCKS_PORT_BASE).await.ok_or_else(|| {
+        format!(
+            "no free port for the SOCKS5 listener in {SOCKS_PORT_BASE}..{}",
+            SOCKS_PORT_BASE + SOCKS_PORT_ATTEMPTS
+        )
+    })?;
+    let (http_listener, http_port) = bind_first_free(HTTP_PORT_BASE).await.ok_or_else(|| {
+        format!(
+            "no free port for the HTTP listener in {HTTP_PORT_BASE}..{}",
+            HTTP_PORT_BASE + SOCKS_PORT_ATTEMPTS
+        )
+    })?;
+    tracing::info!(
+        "WARP tunnel up: socks5 on 127.0.0.1:{socks_port}, http proxy on 127.0.0.1:{http_port}"
+    );
+
+    tokio::spawn(serve(socks_listener, interface.clone(), shutdown_rx.clone(), Front::Socks));
+    tokio::spawn(serve(http_listener, interface, shutdown_rx, Front::Http));
+    Ok(Tunnel { shutdown: shutdown_tx, socks_port, http_port })
 }
 
-/// Accept loop: one task per client, `CONNECT` only, piped into the tunnel. Same shape as the
-/// reference `wg-socks` server, with the target resolved to IPv4 (the tunnel is v4-only, and
-/// handing a v6 address to a v4 stack fails per-connection where resolving first fails fast).
-async fn serve_socks(
+/// The two front ends differ only in the handshake they speak before the pipe.
+#[derive(Clone, Copy)]
+enum Front {
+    Socks,
+    Http,
+}
+
+/// Accept loop: one task per client, piped into the tunnel. Targets are resolved to IPv4 (the
+/// tunnel is v4-only, and handing a v6 address to a v4 stack fails per-connection where
+/// resolving first fails fast).
+async fn serve(
     listener: TcpListener,
     interface: tokio_wireguard::Interface,
     mut shutdown: watch::Receiver<bool>,
+    front: Front,
 ) {
+    let kind = match front {
+        Front::Socks => "SOCKS5",
+        Front::Http => "HTTP",
+    };
     loop {
         tokio::select! {
             result = listener.accept() => {
@@ -414,13 +466,17 @@ async fn serve_socks(
                     Ok((socket, peer)) => {
                         let iface = interface.clone();
                         tokio::spawn(async move {
-                            if let Err(e) = handle_client(socket, iface).await {
-                                tracing::debug!("WARP client {peer}: {e}");
+                            let res = match front {
+                                Front::Socks => handle_socks_client(socket, iface).await,
+                                Front::Http => handle_http_client(socket, iface).await,
+                            };
+                            if let Err(e) = res {
+                                tracing::debug!("WARP {kind} client {peer}: {e}");
                             }
                         });
                     }
                     Err(e) => {
-                        tracing::warn!("WARP SOCKS5 accept error: {e}");
+                        tracing::warn!("WARP {kind} accept error: {e}");
                     }
                 }
             }
@@ -432,7 +488,47 @@ async fn serve_socks(
     }
 }
 
-async fn handle_client(
+/// Resolve a client's target to the tunnel's only route: its first IPv4 answer, or an IPv4
+/// literal unchanged.
+async fn resolve_v4(name: &str, port: u16) -> Result<SocketAddr, String> {
+    if let Ok(ip) = name.parse::<IpAddr>() {
+        if ip.is_ipv4() {
+            return Ok(SocketAddr::new(ip, port));
+        }
+        return Err(format!("{name} is not an IPv4 address"));
+    }
+    tokio::net::lookup_host((name, port))
+        .await
+        .map_err(|e| format!("dns for {name}: {e}"))?
+        .find(|a| a.is_ipv4())
+        .ok_or_else(|| format!("no IPv4 answer for {name}"))
+}
+
+/// One tunnel stream for a resolved target, so both fronts share the wire path.
+async fn tunnel_stream(
+    addr: SocketAddr,
+    interface: tokio_wireguard::Interface,
+) -> Result<tokio_wireguard::TcpStream, String> {
+    tokio_wireguard::TcpStream::connect(addr, interface)
+        .await
+        .map_err(|e| format!("tunnel connect to {addr}: {e}"))
+}
+
+/// Pipe two halves against each other until either side closes.
+async fn pipe(
+    client: tokio::net::TcpStream,
+    stream: tokio_wireguard::TcpStream,
+) -> Result<(), String> {
+    let (mut client_rx, mut client_tx) = tokio::io::split(client);
+    let (mut tun_rx, mut tun_tx) = tokio::io::split(stream);
+    tokio::select! {
+        r = tokio::io::copy(&mut client_rx, &mut tun_tx) => { r.map_err(|e| e.to_string())?; }
+        r = tokio::io::copy(&mut tun_rx, &mut client_tx) => { r.map_err(|e| e.to_string())?; }
+    }
+    Ok(())
+}
+
+async fn handle_socks_client(
     socket: tokio::net::TcpStream,
     interface: tokio_wireguard::Interface,
 ) -> Result<(), String> {
@@ -448,30 +544,23 @@ async fn handle_client(
         return Err(format!("unsupported SOCKS command: {cmd:?}"));
     }
 
-    let addr = match target {
-        TargetAddr::Ip(ip) => ip,
-        TargetAddr::Domain(name, port) => {
-            let resolved = tokio::net::lookup_host((name.as_str(), port))
-                .await
-                .map_err(|e| format!("dns for {name}: {e}"))?
-                .find(|a| a.is_ipv4())
-                .ok_or_else(|| format!("no IPv4 answer for {name}"));
-            match resolved {
-                Ok(a) => a,
-                Err(e) => {
-                    let _ = proto.reply_error(&ReplyError::HostUnreachable).await;
-                    return Err(e);
-                }
-            }
+    let (host, port) = match &target {
+        TargetAddr::Ip(ip) => (ip.ip().to_string(), ip.port()),
+        TargetAddr::Domain(name, port) => (name.clone(), *port),
+    };
+    let addr = match resolve_v4(&host, port).await {
+        Ok(a) => a,
+        Err(e) => {
+            let _ = proto.reply_error(&ReplyError::HostUnreachable).await;
+            return Err(e);
         }
     };
 
-    let stream = tokio_wireguard::TcpStream::connect(addr, interface).await;
-    let stream = match stream {
+    let stream = match tunnel_stream(addr, interface).await {
         Ok(s) => s,
         Err(e) => {
             let _ = proto.reply_error(&ReplyError::HostUnreachable).await;
-            return Err(format!("tunnel connect to {addr}: {e}"));
+            return Err(e);
         }
     };
 
@@ -480,14 +569,49 @@ async fn handle_client(
         .reply_success(SocketAddr::from(([0, 0, 0, 0], 0)))
         .await
         .map_err(|e| e.to_string())?;
+    pipe(client, stream).await
+}
 
-    let (mut client_rx, mut client_tx) = tokio::io::split(client);
-    let (mut tun_rx, mut tun_tx) = tokio::io::split(stream);
-    tokio::select! {
-        r = tokio::io::copy(&mut client_rx, &mut tun_tx) => { r.map_err(|e| e.to_string())?; }
-        r = tokio::io::copy(&mut tun_rx, &mut client_tx) => { r.map_err(|e| e.to_string())?; }
+/// The mpv front: an HTTP CONNECT proxy (libavformat speaks no SOCKS — see [`http_url`]).
+async fn handle_http_client(
+    mut socket: tokio::net::TcpStream,
+    interface: tokio_wireguard::Interface,
+) -> Result<(), String> {
+    let mut buf = Vec::new();
+    // The CONNECT request is small and ends at the first empty line; anything the client sends
+    // past it belongs to the tunnelled stream and is simply never read here (the client waits
+    // for the 200 first).
+    loop {
+        let mut chunk = [0u8; 512];
+        let n = socket.read(&mut chunk).await.map_err(|e| format!("read CONNECT request: {e}"))?;
+        if n == 0 {
+            return Err("client closed before sending CONNECT".into());
+        }
+        buf.extend_from_slice(&chunk[..n]);
+        if buf.windows(4).any(|w| w == b"\r\n\r\n") || buf.len() > 4096 {
+            break;
+        }
     }
-    Ok(())
+    let request = String::from_utf8_lossy(&buf);
+    let first = request.lines().next().unwrap_or_default();
+    let mut parts = first.split_whitespace();
+    let (method, target) = (parts.next(), parts.next());
+    if method != Some("CONNECT") {
+        return Err(format!("unsupported request: {first}"));
+    }
+    let target = target.ok_or_else(|| format!("CONNECT without a target: {first}"))?;
+    let (host, port) =
+        target.rsplit_once(':').ok_or_else(|| format!("CONNECT target has no port: {target}"))?;
+    let port: u16 = port.parse().map_err(|_| format!("CONNECT target has a bad port: {target}"))?;
+
+    let addr = resolve_v4(host, port).await?;
+    let stream = tunnel_stream(addr, interface).await?;
+
+    socket
+        .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
+        .await
+        .map_err(|e| format!("write CONNECT reply: {e}"))?;
+    pipe(socket, stream).await
 }
 
 #[cfg(test)]

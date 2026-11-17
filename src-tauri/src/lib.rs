@@ -660,6 +660,12 @@ fn should_start_minimized(db: &Db) -> bool {
 // no arguments (it used to sit on `init_logging` and the mobile build failed to compile).
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // One process-wide crypto provider for every rustls consumer. reqwest 0.13 (pulled by tauri
+    // itself and the updater) builds its clients expecting one to be installed and panics on the
+    // first use without it — on Android that was a SIGABRT right after launch. Desktop never hit
+    // it; installing is idempotent and free everywhere.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     // Must happen before any webview exists: the limit is inherited by the web processes WebKit
     // forks, and cannot be raised for them afterwards.
     #[cfg(target_os = "linux")]
@@ -954,7 +960,7 @@ pub fn run() {
             // it. First-ever enable registers with Cloudflare, which can take a few seconds; on
             // failure fall back to the manual proxy and let the UI's status line say why.
             let warp_manager = warp::WarpManager::new(handle.clone());
-            let warp_port = if db.get_setting("warp_enabled").as_deref() == Some("true") {
+            let warp_ports = if db.get_setting("warp_enabled").as_deref() == Some("true") {
                 // Setup runs before the event loop: a blocking wait is fine, and the tunnel has
                 // to be up before the clients below are built. First-ever enable registers with
                 // Cloudflare, which can take a few seconds.
@@ -962,8 +968,16 @@ pub fn run() {
             } else {
                 None
             };
-            let proxy = warp_port.map(|p| format!("socks5://127.0.0.1:{p}")).or(proxy);
-            http::set_proxy(proxy.as_deref());
+            // The tunnel fronts differ by consumer: API clients and webviews take SOCKS5, mpv
+            // takes the HTTP CONNECT proxy (libavformat speaks no SOCKS — `warp::http_url`).
+            let (api_proxy, mpv_proxy) = match warp_ports {
+                Some((socks, http)) => (
+                    Some(warp::socks_url(socks)),
+                    Some(warp::http_url(http)),
+                ),
+                None => (proxy.clone(), proxy.clone()),
+            };
+            http::set_proxy(api_proxy.as_deref());
             // Built here instead of from the config (`create: false`), because WebView2 only takes
             // a proxy at creation and it isn't known until the database is open (#465).
             if let Some(config) = app.config().app.windows.first() {
@@ -986,7 +1000,7 @@ pub fn run() {
 
             let visitor_for_prewarm = visitor_data.clone();
             let session = Session { locale: Locale::default(), visitor_data, data_sync_id, cookie };
-            let it = match InnerTube::new(session, proxy.as_deref()) {
+            let it = match InnerTube::new(session, api_proxy.as_deref()) {
                 Ok(it) => it,
                 Err(e) => fatal("Limusic could not start its network client", &e.to_string()),
             };
@@ -1016,7 +1030,7 @@ pub fn run() {
                 ),
             };
             // The audio bytes are the one request that never went through the proxy setting (#241).
-            if let Err(e) = player.set_http_proxy(proxy.as_deref()) {
+            if let Err(e) = player.set_http_proxy(mpv_proxy.as_deref()) {
                 tracing::warn!("mpv refused the proxy setting: {e}");
             }
             // Before anything can play: the first track of a restored queue has to come out at the
