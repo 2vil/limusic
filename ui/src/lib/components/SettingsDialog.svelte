@@ -40,7 +40,7 @@
 	import * as api from '$lib/api';
 	import { blocked, karaokeAvailability, karaokeConsent, karaokeModels, karaokeSelection, cancelKaraokeModelDownload, deleteKaraokeModel, playback, prefs, refreshLanguage, setAutoplay, ui, toast, unblockArtist, setKaraokeDevice, applyKaraokeStatus, chooseKaraokeModel, refreshKaraokeModels } from '$lib/player.svelte';
 	import { deleteAllDownloads } from '$lib/download.svelte';
-	import { importWarpConfig, initWarp, setWarpEnabled, warp, warpOn } from '$lib/warp.svelte';
+	import { importTunnelConfig, initTunnel, setTunnelEnabled, tunnel, tunnelOn } from '$lib/tunnel.svelte';
 	import { win } from '$lib/win.svelte';
 	import { lt } from '$lib/lt.svelte';
 	import AppearanceSettings from '$lib/components/AppearanceSettings.svelte';
@@ -394,7 +394,7 @@
 			clients = c;
 			downloadDir = d;
 			downloadConcurrency = concurrency;
-			warp.confName = settings.warp_conf_name || null;
+			tunnel.confName = settings.warp_conf_name || null;
 			proxyInput = s.proxy ?? '';
 		} catch (e) {
 			toast.error(String(e));
@@ -409,19 +409,19 @@
 
 	const quality = $derived(settings.quality ?? 'HIGH');
 	// The embedded WARP tunnel's status line, next to its toggle. The backend drives the state
-	// (`warp-status` events); this only translates it.
-	const warpStatusText = $derived.by(() => {
-		switch (warp.status.status) {
+	// (`tunnel-status` events); this only translates it.
+	const tunnelStatusText = $derived.by(() => {
+		switch (tunnel.status.status) {
 			case 'off':
-				return t('settings.general.warp_status_off');
+				return t('settings.general.tunnel_status_off');
 			case 'registering':
-				return t('settings.general.warp_status_registering');
+				return t('settings.general.tunnel_status_registering');
 			case 'connecting':
-				return t('settings.general.warp_status_connecting');
+				return t('settings.general.tunnel_status_connecting');
 			case 'connected':
-				return t('settings.general.warp_status_connected');
+				return t('settings.general.tunnel_status_connected');
 			default:
-				return t('settings.general.warp_status_failed', { msg: warp.status.msg });
+				return t('settings.general.tunnel_status_failed', { msg: tunnel.status.msg });
 		}
 	});
 	const historyOn = $derived(settings.enable_history !== 'false');
@@ -1054,15 +1054,15 @@
 									below: proxyForm
 								})}
 								{@render row({
-									title: t('settings.general.warp_title'),
-									desc: warpStatusText,
-									extra: warpBadge,
-									control: warpSwitch
+									title: t('settings.general.tunnel_title'),
+									desc: tunnelStatusText,
+									extra: tunnelBadge,
+									control: tunnelSwitch
 								})}
 								{@render row({
-									title: t('settings.general.warp_config'),
-									desc: warp.confName ?? t('settings.general.warp_config_none'),
-									control: warpImportButton
+									title: t('settings.general.tunnel_config'),
+									desc: tunnel.confName ?? t('settings.general.tunnel_config_none'),
+									control: tunnelImportButton
 								})}
 							</div>
 						</section>
@@ -1260,18 +1260,18 @@
 	/>
 {/snippet}
 
-{#snippet warpSwitch()}<Switch checked={warpOn()} onCheckedChange={(v) => void setWarpEnabled(v)} />{/snippet}
-{#snippet warpBadge()}<ExperimentalBadge tooltip={t('settings.general.warp_tooltip')} />{/snippet}
-{#snippet warpImportButton()}
+{#snippet tunnelSwitch()}<Switch checked={tunnelOn()} onCheckedChange={(v) => void setTunnelEnabled(v)} />{/snippet}
+{#snippet tunnelBadge()}<ExperimentalBadge tooltip={t('settings.general.tunnel_tooltip')} />{/snippet}
+{#snippet tunnelImportButton()}
 	<Button
 		variant="outline"
 		size="sm"
 		onclick={async () => {
-			const name = await importWarpConfig();
-			if (name) toast.success(t('settings.general.warp_imported', { name }));
+			const name = await importTunnelConfig();
+			if (name) toast.success(t('settings.general.tunnel_imported', { name }));
 		}}
 	>
-		{t('settings.general.warp_import')}
+		{t('settings.general.tunnel_import')}
 	</Button>
 {/snippet}
 {#snippet historySwitch()}<Switch checked={historyOn} onCheckedChange={setHistory} />{/snippet}

@@ -61,9 +61,9 @@ pub struct AppState {
     pub db: Arc<Db>,
     pub app: AppHandle,
     pub orchestrator: Arc<Orchestrator>,
-    /// Embedded WARP tunnel (Settings ▸ General, experimental). Owns the local SOCKS5 server the
-    /// whole proxy plumbing points at while it is up (`crate::warp`).
-    pub warp: Arc<crate::warp::WarpManager>,
+    /// Embedded WireGuard tunnel (Settings ▸ General, experimental). Owns the local SOCKS5 server the
+    /// whole proxy plumbing points at while it is up (`crate::tunnel`).
+    pub tunnel: Arc<crate::tunnel::TunnelManager>,
     pub downloads: Arc<crate::download::DownloadManager>,
     /// Listen Together session (context/19). Drives host broadcasts + guest gating.
     pub lt: Arc<LtSession>,
@@ -523,7 +523,7 @@ impl AppState {
         db: Arc<Db>,
         app: AppHandle,
         orchestrator: Arc<Orchestrator>,
-        warp: Arc<crate::warp::WarpManager>,
+        tunnel: Arc<crate::tunnel::TunnelManager>,
         lt: Arc<LtSession>,
         link: Arc<LinkSession>,
         cache_dir: std::path::PathBuf,
@@ -543,7 +543,7 @@ impl AppState {
             db,
             app,
             orchestrator,
-            warp,
+            tunnel,
             downloads,
             lt,
             link,

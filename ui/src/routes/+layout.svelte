@@ -49,7 +49,7 @@
 	import KaraokeSetupDialog from '$lib/components/KaraokeSetupDialog.svelte';
 	import { handleImportDrop, initImport } from '$lib/import.svelte';
 	import { initDownloads } from '$lib/download.svelte';
-	import { initWarp } from '$lib/warp.svelte';
+	import { initTunnel } from '$lib/tunnel.svelte';
 	import MiniPlayer from '$lib/components/MiniPlayer.svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
 	import NowPlaying from '$lib/components/NowPlaying.svelte';
@@ -201,7 +201,7 @@
 		const teardownShortcuts = initShortcuts();
 		initImport();
 		initDownloads();
-		initWarp();
+		initTunnel();
 		return () => {
 			clearInterval(updateTimer);
 			teardownApp();

@@ -58,11 +58,11 @@ const KEEPALIVE_SECS: u16 = 10;
 /// The DNS the engine resolves domain targets with, injected into configs that ship none.
 const FALLBACK_DNS: &str = "1.1.1.1";
 
-/// What the UI is told, through the `warp-status` event and the `warp_status` command. Serialized
+/// What the UI is told, through the `tunnel-status` event and the `tunnel_status` command. Serialized
 /// with the tag on the outside so JS sees `{ status: "connected" }` / `{ status: "failed", msg }`.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
-pub enum WarpStatus {
+pub enum TunnelStatus {
     Off,
     Connecting,
     Connected,
@@ -94,12 +94,12 @@ fn normalize_conf(conf: &str) -> String {
 
 /// The stored `.conf`, or `None` until one is imported.
 fn imported_conf(db: &Db) -> Option<String> {
-    db.get_setting("warp_conf").filter(|c| !c.trim().is_empty()).map(|c| normalize_conf(&c))
+    db.get_setting("warp_conf") // historical key name, kept.filter(|c| !c.trim().is_empty()).map(|c| normalize_conf(&c))
 }
 
-pub struct WarpManager {
+pub struct TunnelManager {
     app: AppHandle,
-    status: RwLock<WarpStatus>,
+    status: RwLock<TunnelStatus>,
     tunnel: Mutex<Option<Tunnel>>,
 }
 
@@ -128,21 +128,21 @@ impl Tunnel {
     }
 }
 
-impl WarpManager {
+impl TunnelManager {
     pub fn new(app: AppHandle) -> Arc<Self> {
-        Arc::new(Self { app, status: RwLock::new(WarpStatus::Off), tunnel: Mutex::new(None) })
+        Arc::new(Self { app, status: RwLock::new(TunnelStatus::Off), tunnel: Mutex::new(None) })
     }
 
-    pub fn status(&self) -> WarpStatus {
+    pub fn status(&self) -> TunnelStatus {
         self.status.read().unwrap().clone()
     }
 
-    fn set_status(&self, status: WarpStatus) {
+    fn set_status(&self, status: TunnelStatus) {
         *self.status.write().unwrap() = status;
         // The SPA mirrors the toggle's state live (Settings ▸ General): one event, and its payload
-        // is the same shape the `warp_status` command returns.
+        // is the same shape the `tunnel_status` command returns.
         let current = self.status.read().unwrap().clone();
-        let _ = self.app.emit("warp-status", &current);
+        let _ = self.app.emit("tunnel-status", &current);
     }
 
     /// The commands' entry point. Starting while connected is a no-op (the UI's switch already
@@ -168,19 +168,19 @@ impl WarpManager {
     /// `(SOCKS5 port, HTTP proxy port)` the tunnel ended up on. Fails without touching the proxy,
     /// so a broken tunnel never takes playback down with it.
     pub async fn start(&self, db: &Db) -> Result<(u16, u16), String> {
-        self.set_status(WarpStatus::Connecting);
+        self.set_status(TunnelStatus::Connecting);
         let conf = match imported_conf(db) {
             Some(c) => c,
             None => {
                 let msg = "no WireGuard config imported yet".to_owned();
-                self.set_status(WarpStatus::Failed { msg: msg.clone() });
+                self.set_status(TunnelStatus::Failed { msg: msg.clone() });
                 return Err(msg);
             }
         };
 
         let tunnel = start_tunnel(&conf).await.map_err(|e| {
             let msg = format!("WireGuard tunnel failed: {e}");
-            self.set_status(WarpStatus::Failed { msg: msg.clone() });
+            self.set_status(TunnelStatus::Failed { msg: msg.clone() });
             msg
         })?;
 
@@ -188,7 +188,7 @@ impl WarpManager {
         apply_tunnel_proxy(self.app.clone(), socks_port, http_port);
         spawn_watchdog(self.app.clone(), conf, tunnel.shutdown_rx());
         *self.tunnel.lock().unwrap() = Some(tunnel);
-        self.set_status(WarpStatus::Connected);
+        self.set_status(TunnelStatus::Connected);
         Ok((socks_port, http_port))
     }
 
@@ -198,7 +198,7 @@ impl WarpManager {
             tunnel.kill();
             apply_manual_proxy(self.app.clone(), db.get_setting("proxy").as_deref());
         }
-        self.set_status(WarpStatus::Off);
+        self.set_status(TunnelStatus::Off);
     }
 
     /// Swap the tunnel over to whatever `.conf` is now in the database, without leaving the user
@@ -299,7 +299,7 @@ fn spawn_watchdog(app: AppHandle, conf: String, shutdown: watch::Receiver<bool>)
                 continue;
             }
             fails += 1;
-            tracing::warn!(fails, "WARP tunnel health probe failed");
+            tracing::warn!(fails, "WireGuard tunnel health probe failed");
 
             if fails < WATCHDOG_STRIKES {
                 continue;
@@ -307,11 +307,11 @@ fn spawn_watchdog(app: AppHandle, conf: String, shutdown: watch::Receiver<bool>)
             fails = 0;
 
             let Some(state) = app.try_state::<Arc<crate::state::AppState>>() else { continue };
-            let manager = state.warp.clone();
+            let manager = state.tunnel.clone();
             if !manager.is_up() {
                 return;
             }
-            manager.set_status(WarpStatus::Connecting);
+            manager.set_status(TunnelStatus::Connecting);
             tracing::warn!("re-establishing the WireGuard interface");
 
             // Drop the old front ends first so nothing accepts while the new one stands up.
@@ -324,11 +324,11 @@ fn spawn_watchdog(app: AppHandle, conf: String, shutdown: watch::Receiver<bool>)
                     apply_tunnel_proxy(app.clone(), tunnel.socks_port, tunnel.http_port);
                     spawn_watchdog(app.clone(), conf.clone(), tunnel.shutdown_rx());
                     *manager.tunnel.lock().unwrap() = Some(tunnel);
-                    manager.set_status(WarpStatus::Connected);
+                    manager.set_status(TunnelStatus::Connected);
                 }
                 Err(e) => {
                     tracing::error!("WireGuard interface rebuild failed: {e}");
-                    manager.set_status(WarpStatus::Failed { msg: e });
+                    manager.set_status(TunnelStatus::Failed { msg: e });
                     return;
                 }
             }
@@ -407,7 +407,7 @@ async fn start_tunnel(conf: &str) -> Result<Tunnel, String> {
         )
     })?;
     tracing::info!(
-        "WARP tunnel up: socks5 on 127.0.0.1:{socks_port}, http proxy on 127.0.0.1:{http_port}"
+        "WireGuard tunnel up: socks5 on 127.0.0.1:{socks_port}, http proxy on 127.0.0.1:{http_port}"
     );
 
     let ctx = ProxyCtx::new(engine.clone());
@@ -462,10 +462,8 @@ mod tests {
     #[test]
     fn normalize_leaves_complete_configs_alone() {
         // DNS belongs to [Interface]; the keepalive to [Peer] — same placement the injector uses.
-        let conf = sample_conf().replace(
-            "Address = 172.16.0.2/32",
-            "Address = 172.16.0.2/32\nDNS = 9.9.9.9",
-        );
+        let conf = sample_conf()
+            .replace("Address = 172.16.0.2/32", "Address = 172.16.0.2/32\nDNS = 9.9.9.9");
         let conf = format!("{conf}\nPersistentKeepalive = 15\n");
         let config = Config::parse(&normalize_conf(&conf)).expect("parses");
         assert!(config.interface.dns.contains(&"9.9.9.9".parse().unwrap()));

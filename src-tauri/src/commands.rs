@@ -519,11 +519,11 @@ pub async fn set_setting(
     if key == "discord_rpc" {
         state.set_discord_enabled(value == "true");
     }
-    // The embedded WARP tunnel (`crate::warp`): stood up or torn down at once, so the toggle is
+    // The embedded WireGuard tunnel (`crate::tunnel`): stood up or torn down at once, so the toggle is
     // honest about when traffic actually changes route. A failed start leaves the setting on
     // (a restart will retry) and the error in the status the UI is already listening for.
     if key == "warp_enabled" {
-        state.warp.set_enabled(&state.db, value == "true").await?;
+        state.tunnel.set_enabled(&state.db, value == "true").await?;
     }
     // Same reasoning for the card layout: the settings tab previews it live, so the real card has
     // to follow without waiting for the next track.
@@ -3056,11 +3056,11 @@ pub fn save_diagnostics(app: tauri::AppHandle, state: St<'_>, path: String) -> R
     std::fs::write(&path, crate::diagnostics::report(&app, &state.db)).map_err(|e| e.to_string())
 }
 
-/// The embedded WireGuard tunnel's state (`crate::warp`), for the Settings toggle's first paint.
-/// After that the `warp-status` event carries every change live.
+/// The embedded WireGuard tunnel's state (`crate::tunnel`), for the Settings toggle's first paint.
+/// After that the `tunnel-status` event carries every change live.
 #[tauri::command]
-pub fn warp_status(state: St<'_>) -> crate::warp::WarpStatus {
-    state.warp.status()
+pub fn tunnel_status(state: St<'_>) -> crate::tunnel::TunnelStatus {
+    state.tunnel.status()
 }
 
 /// Import a WireGuard `.conf` through the file picker, which lives in Rust on purpose: the file
@@ -3068,7 +3068,7 @@ pub fn warp_status(state: St<'_>) -> crate::warp::WarpStatus {
 /// and the tunnel is rebuilt over it right away when it is already up. Returns the file's name,
 /// for the Settings row to display.
 #[tauri::command]
-pub async fn warp_import_config(app: tauri::AppHandle, state: St<'_>) -> Result<String, String> {
+pub async fn tunnel_import_config(app: tauri::AppHandle, state: St<'_>) -> Result<String, String> {
     use tauri_plugin_dialog::DialogExt;
 
     // The dialog callback bridges into async-land through a oneshot.
@@ -3086,7 +3086,7 @@ pub async fn warp_import_config(app: tauri::AppHandle, state: St<'_>) -> Result<
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("tunnel.conf").to_owned();
     state.db.set_setting("warp_conf", &text);
     state.db.set_setting("warp_conf_name", &name);
-    state.warp.restart(&state.db).await?;
+    state.tunnel.restart(&state.db).await?;
     Ok(name)
 }
 
