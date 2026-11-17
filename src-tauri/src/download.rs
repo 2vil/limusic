@@ -183,10 +183,18 @@ impl DownloadManager {
     pub fn find_existing_file(
         &self,
         title: &str,
+        artist: &str,
         video_id: &str,
         subfolder: Option<&str>,
     ) -> Option<PathBuf> {
         let base_name = sanitize_filename(title);
+        // Collision-disambiguated files are named "Title - Artist.ext" — try both stems.
+        let artist_stem = sanitize_filename(artist);
+        let stems: Vec<String> = if artist_stem.is_empty() || artist_stem == base_name {
+            vec![base_name]
+        } else {
+            vec![base_name.clone(), format!("{base_name} - {artist_stem}")]
+        };
         let exts = ["m4a", "opus"];
         let mut dirs_to_check = Vec::new();
 
@@ -209,27 +217,31 @@ impl DownloadManager {
         }
 
         for dir in dirs_to_check {
-            for ext in &exts {
-                // The naming standard is "Title.ext" — no id suffix. The comment tag carrying the
-                // video id is the strong match, but files written before the comment landed carry
-                // none: an exact-title file with an empty comment is accepted too (a different
-                // track sharing this exact title would collide only by coincidence).
-                let legacy_candidate = dir.join(format!("{base_name}.{ext}"));
-                if legacy_candidate.exists() {
-                    if let Ok(meta) = std::fs::metadata(&legacy_candidate) {
-                        if meta.len() > 100_000 {
-                            use lofty::file::TaggedFileExt;
-                            use lofty::tag::Accessor;
-                            if let Ok(tagged) =
-                                lofty::probe::Probe::open(&legacy_candidate).and_then(|p| p.read())
-                            {
-                                if let Some(tag) =
-                                    tagged.primary_tag().or_else(|| tagged.first_tag())
+            for stem in &stems {
+                for ext in &exts {
+                    // The naming standard is "Title.ext" — no id suffix. The comment tag carrying the
+                    // video id is the strong match, but files written before the comment landed carry
+                    // none: an exact-title file with an empty comment is accepted too (a different
+                    // track sharing this exact title would collide only by coincidence).
+                    let legacy_candidate = dir.join(format!("{stem}.{ext}"));
+                    if legacy_candidate.exists() {
+                        if let Ok(meta) = std::fs::metadata(&legacy_candidate) {
+                            if meta.len() > 100_000 {
+                                use lofty::file::TaggedFileExt;
+                                use lofty::tag::Accessor;
+                                if let Ok(tagged) = lofty::probe::Probe::open(&legacy_candidate)
+                                    .and_then(|p| p.read())
                                 {
-                                    match tag.comment().as_deref() {
-                                        Some(c) if c == video_id => return Some(legacy_candidate),
-                                        None | Some("") => return Some(legacy_candidate),
-                                        _ => {}
+                                    if let Some(tag) =
+                                        tagged.primary_tag().or_else(|| tagged.first_tag())
+                                    {
+                                        match tag.comment().as_deref() {
+                                            Some(c) if c == video_id => {
+                                                return Some(legacy_candidate)
+                                            }
+                                            None | Some("") => return Some(legacy_candidate),
+                                            _ => {}
+                                        }
                                     }
                                 }
                             }
@@ -593,7 +605,7 @@ impl DownloadManager {
 
         // 2. Check if file already exists on disk (e.g. from existing library or prior session)
         if let Some(existing_file) =
-            self.find_existing_file(&title, &video_id, subfolder.as_deref())
+            self.find_existing_file(&title, &artist, &video_id, subfolder.as_deref())
         {
             let file_str = existing_file.to_string_lossy().to_string();
             let now = std::time::SystemTime::now()
@@ -772,7 +784,7 @@ impl DownloadManager {
 
         // Before starting any network download, check if file already exists on disk
         if let Some(existing_file) =
-            self.find_existing_file(&title, &video_id, subfolder.as_deref())
+            self.find_existing_file(&title, &artist, &video_id, subfolder.as_deref())
         {
             let file_str = existing_file.to_string_lossy().to_string();
             let now = std::time::SystemTime::now()
@@ -833,18 +845,36 @@ impl DownloadManager {
         let base_name = sanitize_filename(&title);
         // The naming standard is "Title.ext". Two different videos may share a title ("Hello"),
         // and the second one must not overwrite the first's file: when the plain name is taken by
-        // another video, ours is parked next to it with the id suffix — which the launch scanner
-        // and the existing-file match both read back.
-        let mut final_path = target_dir.join(format!("{base_name}.{ext}"));
-        if final_path.exists() {
-            let belongs_to_this_video = self
-                .db
-                .get_downloaded_track(&video_id)
-                .ok()
-                .flatten()
-                .is_some_and(|t| Path::new(&t.file_path) == final_path);
-            if !belongs_to_this_video {
-                final_path = target_dir.join(format!("{base_name} [{video_id}].{ext}"));
+        // another video, ours goes to "Title - Artist.ext" — and if even that is taken, the id
+        // suffix is the last resort. The scanner and the existing-file match read them all back.
+        let artist_stem = sanitize_filename(&artist);
+        let stems = [
+            base_name.clone(),
+            if artist_stem.is_empty() || artist_stem == base_name {
+                String::new()
+            } else {
+                format!("{base_name} - {artist_stem}")
+            },
+            format!("{base_name} [{video_id}]"),
+        ];
+        let mut final_path = target_dir.join(format!("{}.{}", stems[0], ext));
+        for stem in stems.iter().skip(1).filter(|s| !s.is_empty()) {
+            let candidate = target_dir.join(format!("{stem}.{ext}"));
+            if candidate.exists() {
+                // An existing file that belongs to this very video is fine to overwrite.
+                let ours = self
+                    .db
+                    .get_downloaded_track(&video_id)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|t| Path::new(&t.file_path) == candidate);
+                if ours {
+                    final_path = candidate;
+                    break;
+                }
+            } else {
+                final_path = candidate;
+                break;
             }
         }
         let part_path = PathBuf::from(format!("{}.part", final_path.to_string_lossy()));
