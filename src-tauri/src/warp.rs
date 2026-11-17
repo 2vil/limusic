@@ -172,6 +172,14 @@ struct Tunnel {
     http_port: u16,
 }
 
+impl Tunnel {
+    /// A fresh receiver of this tunnel's shutdown channel: the front ends and the watchdog all
+    /// select on it, so one `send(true)` tears everything down together.
+    fn shutdown_rx(&self) -> watch::Receiver<bool> {
+        self.shutdown.subscribe()
+    }
+}
+
 impl WarpManager {
     pub fn new(app: AppHandle) -> Arc<Self> {
         Arc::new(Self { app, status: RwLock::new(WarpStatus::Off), tunnel: Mutex::new(None) })
@@ -235,6 +243,7 @@ impl WarpManager {
 
         let (socks_port, http_port) = (tunnel.socks_port, tunnel.http_port);
         apply_tunnel_proxy(self.app.clone(), socks_port, http_port);
+        spawn_watchdog(self.app.clone(), device, tunnel.shutdown_rx());
         *self.tunnel.lock().unwrap() = Some(tunnel);
         self.set_status(WarpStatus::Connected);
         Ok((socks_port, http_port))
@@ -291,6 +300,85 @@ fn apply_manual_proxy(app: AppHandle, proxy: Option<&str>) {
             tracing::warn!("the InnerTube transport did not take the restored proxy: {e}");
         }
     }
+}
+
+/// Watchdog interval and how the health probe talks to YouTube through the front. It probes the
+/// same way the app's own clients do — through the SOCKS5 front — so a dead front is a dead
+/// tunnel for the probe too.
+const WATCHDOG_INTERVAL: Duration = Duration::from_secs(20);
+const WATCHDOG_PROBE_URL: &str = "https://1.1.1.1/cdn-cgi/trace";
+const WATCHDOG_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+/// Consecutive failures before the interface is rebuilt. One miss happens on flaky mobile
+/// networks; two in a row means the session is gone for good.
+const WATCHDOG_STRIKES: u32 = 2;
+
+/// The WireGuard session is not bulletproof: handshakes on flaky networks (CGNAT, mobile data)
+/// sometimes die mid-session and do not always come back on their own. This loop probes the front
+/// every [`WATCHDOG_INTERVAL`] and, after [`WATCHDOG_STRIKES`] consecutive misses, tears the
+/// interface down and rebuilds it from the same device — the ports may change, so every consumer
+/// is re-pointed (`apply_tunnel_proxy`). The user never sees more than a brief `connecting` blip.
+fn spawn_watchdog(app: AppHandle, device: WarpDevice, shutdown: watch::Receiver<bool>) {
+    tokio::spawn(async move {
+        let mut shutdown = shutdown;
+        let mut fails = 0u32;
+        loop {
+            tokio::select! {
+                _ = shutdown.changed() => return,
+                _ = tokio::time::sleep(WATCHDOG_INTERVAL) => {}
+            }
+
+            let probe = tokio::time::timeout(WATCHDOG_PROBE_TIMEOUT, async {
+                crate::http::client()
+                    .get(WATCHDOG_PROBE_URL)
+                    .timeout(WATCHDOG_PROBE_TIMEOUT)
+                    .send()
+                    .await
+                    .map(|r| r.status().is_success())
+                    .unwrap_or(false)
+            })
+            .await
+            .unwrap_or(false);
+
+            if probe {
+                fails = 0;
+                continue;
+            }
+            fails += 1;
+            tracing::warn!(fails, "WARP tunnel health probe failed");
+
+            if fails < WATCHDOG_STRIKES {
+                continue;
+            }
+            fails = 0;
+
+            let Some(state) = app.try_state::<Arc<crate::state::AppState>>() else { continue };
+            let manager = state.warp.clone();
+            if !manager.is_up() {
+                return;
+            }
+            manager.set_status(WarpStatus::Connecting);
+            tracing::warn!("re-establishing the WARP interface");
+
+            // Drop the old front ends first so nothing accepts while the new one stands up.
+            let old = { manager.tunnel.lock().unwrap().take() };
+            if let Some(old) = &old {
+                let _ = old.shutdown.send(true);
+            }
+            match start_tunnel(&device).await {
+                Ok(tunnel) => {
+                    apply_tunnel_proxy(app.clone(), tunnel.socks_port, tunnel.http_port);
+                    spawn_watchdog(app.clone(), device.clone(), tunnel.shutdown_rx());
+                    *manager.tunnel.lock().unwrap() = Some(tunnel);
+                    manager.set_status(WarpStatus::Connected);
+                }
+                Err(e) => {
+                    tracing::error!("WARP interface rebuild failed: {e}");
+                    manager.set_status(WarpStatus::Failed { msg: e });
+                    return;
+                }
+            }
+        }
+    });
 }
 
 /// Ask Cloudflare for a fresh anonymous WARP device (the `wgcf` flow): generate a WireGuard
