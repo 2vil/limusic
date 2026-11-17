@@ -24,6 +24,7 @@ rustypipe_reports/
 /.agents/
 /.claude/
 /.zcode/
+/.vscode/
 /CLAUDE.md
 /PHASE1-PROMPT.md
 /RELEASING.md
