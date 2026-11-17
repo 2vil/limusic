@@ -197,17 +197,10 @@ impl DownloadManager {
 
         for dir in dirs_to_check {
             for ext in &exts {
-                // 1. Direct match with unique video_id suffix: "Title [video_id].ext"
-                let unique_candidate = dir.join(format!("{base_name} [{video_id}].{ext}"));
-                if unique_candidate.exists() {
-                    if let Ok(meta) = std::fs::metadata(&unique_candidate) {
-                        if meta.len() > 100_000 {
-                            return Some(unique_candidate);
-                        }
-                    }
-                }
-
-                // 2. Legacy or clean match: "Title.ext" - verify that comment tag matches video_id
+                // The naming standard is "Title.ext" — no id suffix. The comment tag carrying the
+                // video id is the strong match, but files written before the comment landed carry
+                // none: an exact-title file with an empty comment is accepted too (a different
+                // track sharing this exact title would collide only by coincidence).
                 let legacy_candidate = dir.join(format!("{base_name}.{ext}"));
                 if legacy_candidate.exists() {
                     if let Ok(meta) = std::fs::metadata(&legacy_candidate) {
@@ -220,8 +213,10 @@ impl DownloadManager {
                                 if let Some(tag) =
                                     tagged.primary_tag().or_else(|| tagged.first_tag())
                                 {
-                                    if tag.comment().as_deref() == Some(video_id) {
-                                        return Some(legacy_candidate);
+                                    match tag.comment().as_deref() {
+                                        Some(c) if c == video_id => return Some(legacy_candidate),
+                                        None | Some("") => return Some(legacy_candidate),
+                                        _ => {}
                                     }
                                 }
                             }
@@ -690,8 +685,8 @@ impl DownloadManager {
         // 2. Determine file extension: Opus vs M4A with video_id suffix to prevent collisions
         let ext = if is_m4a_itag(playback_data.itag) { "m4a" } else { "opus" };
         let base_name = sanitize_filename(&title);
-        let final_path = target_dir.join(format!("{base_name} [{video_id}].{ext}"));
-        let part_path = target_dir.join(format!("{base_name} [{video_id}].{ext}.part"));
+        let final_path = target_dir.join(format!("{base_name}.{ext}"));
+        let part_path = target_dir.join(format!("{base_name}.{ext}.part"));
 
         // 3. Download stream chunks using shared HTTP client (respects user proxy)
         let client = crate::http::client();
@@ -1064,7 +1059,9 @@ fn is_m4a_itag(itag: i64) -> bool {
 }
 
 pub fn sanitize_filename(name: &str) -> String {
-    let invalid = ['/', '\\', ':', '*', '?', '"', '<', '>', '|', '\0'];
+    // Newlines count too: a track titled "Catching\nVillains" produced a file whose name
+    // wrapped, and the scanner then saw it as two different names.
+    let invalid = ['/', '\\', ':', '*', '?', '"', '<', '>', '|', '\0', '\n', '\r'];
     let s: String = name.chars().map(|c| if invalid.contains(&c) { '_' } else { c }).collect();
     let trimmed = s.trim().trim_matches('.');
     if trimmed.is_empty() {
@@ -1308,25 +1305,16 @@ fn scan_download_dir(dir: &Path) -> Vec<crate::db::DownloadedTrack> {
                     let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
                     let comment = tag.and_then(|t| t.comment()).map(|c| c.into_owned());
 
-                    // The id: comment tag first (every download writes it), then the `[id]` the
-                    // filename suffix carries. An 11-character YouTube id is unmistakable.
-                    let from_name = name
-                        .rsplit_once(" [")
-                        .and_then(|(_, rest)| rest.strip_suffix(']'))
-                        .map(str::to_owned);
-                    let video_id = comment.filter(|c| c.len() == 11).or(from_name);
+                    // The id lives in the comment tag — every download writes it, and the naming
+                    // standard ("Title.ext") carries none. An 11-character id is unmistakable.
+                    let video_id = comment.filter(|c| c.len() == 11);
                     let Some(video_id) = video_id else { continue };
 
-                    let stem = name
-                        .rsplit_once(" [")
-                        .map(|(stem, _)| stem)
-                        .unwrap_or_else(|| name)
-                        .trim_end()
-                        .to_owned();
+                    let stem = name.rsplit_once('.').map(|(s, _)| s).unwrap_or(name);
                     let title = tag
                         .and_then(|t| t.title())
                         .map(|t| t.into_owned())
-                        .unwrap_or_else(|| stem.clone());
+                        .unwrap_or_else(|| stem.to_owned());
                     let artist =
                         tag.and_then(|t| t.artist()).map(|a| a.into_owned()).unwrap_or_default();
                     let album = tag.and_then(|t| t.album()).map(|a| a.into_owned());
