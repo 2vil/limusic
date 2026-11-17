@@ -563,17 +563,17 @@ export const setWebviewOpaque = (opaque: boolean) =>
 export const getSettings = () => invoke<Record<string, string>>('get_settings');
 export const setSetting = (key: string, value: string) =>
 	invoke<void>('set_setting', { key, value });
-/** The embedded WARP tunnel's state; the `warp-status` event carries every later change. */
-export type WarpStatus =
+/** The embedded WireGuard tunnel's state; the `tunnel-status` event carries every later change. */
+export type TunnelStatus =
 	| { status: 'off' }
 	| { status: 'registering' }
 	| { status: 'connecting' }
 	| { status: 'connected' }
 	| { status: 'failed'; msg: string };
-export const warpStatus = () => invoke<WarpStatus>('warp_status');
+export const tunnelStatus = () => invoke<TunnelStatus>('tunnel_status');
 /** Opens the file picker in Rust (the config holds a private key and never crosses IPC); returns
  * the file's name for display. */
-export const warpImportConfig = () => invoke<string>('warp_import_config');
+export const tunnelImportConfig = () => invoke<string>('tunnel_import_config');
 /** Streamable client keys for the "disabled clients" setting. */
 export const getStreamClients = () => invoke<string[]>('get_stream_clients');
 /** Wipe both cache tiers (URL cache + mpv on-disk audio cache). */
@@ -1758,4 +1758,8 @@ export const getDownloadedTracks = () => invoke<DownloadedTrack[]>('get_download
 
 export const onDownloadProgress = (cb: (task: DownloadTask) => void): Promise<UnlistenFn> =>
 	listen<DownloadTask>('download-progress', (e) => cb(e.payload));
+
+/** The launch scan re-registered downloaded files from disk — re-read the ids. */
+export const onDownloadedUpdated = (cb: () => void): Promise<UnlistenFn> =>
+	listen('downloaded-updated', () => cb());
 

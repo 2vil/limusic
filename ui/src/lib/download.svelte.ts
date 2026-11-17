@@ -61,33 +61,37 @@ export function getCollectionDownloadState(videoIds: (string | undefined | null)
 
 let initialized = false;
 
+/** Re-read the downloaded ids/tracks from the backend into the reactive set. Called at startup
+ * and again when the launch scan (after a reinstall) re-registers files from disk. */
+async function refreshDownloadedState() {
+	const ids = await api.getDownloadedIds();
+	const tracks = await api.getDownloadedTracks();
+	const nextSet = new Set<string>(ids);
+	const nextCovers = new Map<string, string>();
+	for (const track of tracks) {
+		nextSet.add(track.video_id);
+		if (track.thumbnail) nextCovers.set(track.video_id, track.thumbnail);
+	}
+	downloadedSet = nextSet;
+	downloadedCovers = nextCovers;
+}
+
 export async function initDownloads() {
 	if (initialized) return;
 	initialized = true;
 
+	// The launch scan (Rust) repopulates the database from disk after a reinstall; when it lands,
+	// re-read the ids so already-downloaded tracks stop looking downloadable.
+	await api.onDownloadedUpdated(() => void refreshDownloadedState());
+
+	await refreshDownloadedState().catch((e) =>
+		console.error('Failed to get initial downloads', e)
+	);
+
 	try {
-		const [list, ids, tracks] = await Promise.all([
-			api.getDownloads(),
-			api.getDownloadedIds(),
-			api.getDownloadedTracks()
-		]);
-		downloadQueue.tasks = list.filter((t) => t.status !== 'cancelled');
-		const nextSet = new Set<string>(ids);
-		const nextCovers = new Map<string, string>();
-		for (const t of list) {
-			if (t.status === 'completed') {
-				nextSet.add(t.video_id);
-				if (t.thumbnail) nextCovers.set(t.video_id, t.thumbnail);
-			}
-		}
-		for (const track of tracks) {
-			nextSet.add(track.video_id);
-			if (track.thumbnail) nextCovers.set(track.video_id, track.thumbnail);
-		}
-		downloadedSet = nextSet;
-		downloadedCovers = nextCovers;
+		downloadQueue.tasks = (await api.getDownloads()).filter((t) => t.status !== 'cancelled');
 	} catch (e) {
-		console.error('Failed to get initial downloads', e);
+		console.error('Failed to get the download queue', e);
 	}
 
 	await api.onDownloadProgress((task) => {

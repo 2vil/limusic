@@ -233,6 +233,30 @@ impl DownloadManager {
         None
     }
 
+    /// Walk the download directory and repopulate `downloaded_tracks` from the files found on
+    /// disk. Every file this app has ever written carries its video id in the comment tag (with
+    /// the `[id]` filename suffix as a fallback), which makes a reinstall recoverable: the scan
+    /// re-registers every file into the empty database, so nothing is downloaded twice. Titles
+    /// and artists come from the files' own tags. Returns how many files were (re)registered.
+    pub async fn rescan_imported_files(&self) -> usize {
+        let dir = self.download_dir();
+        let recovered =
+            tokio::task::spawn_blocking(move || scan_download_dir(&dir)).await.unwrap_or_default();
+
+        let mut registered = 0usize;
+        for track in &recovered {
+            if self.db.record_download(track).is_ok() {
+                registered += 1;
+            }
+        }
+        if registered > 0 {
+            tracing::info!(registered, "recovered downloaded files from disk into the database");
+            // The UI read the (empty) ids before the scan ran; let it re-fetch.
+            let _ = self.app.emit("downloaded-updated", registered);
+        }
+        registered
+    }
+
     pub fn is_downloaded(&self, video_id: &str) -> bool {
         if let Ok(Some(track)) = self.db.get_downloaded_track(video_id) {
             if Path::new(&track.file_path).exists() {
@@ -1254,4 +1278,79 @@ mod tests {
         );
         assert_eq!(force_jpeg_url(""), "");
     }
+}
+/// Walk `dir` recursively and recover every audio file this app wrote. The video id comes from
+/// the comment tag (written on every download); the `[id]` filename suffix is the fallback for
+/// files whose tags were edited afterwards. Titles/artists come from the tags, falling back to
+/// the file name; `downloaded_at` is the file's modification time.
+fn scan_download_dir(dir: &Path) -> Vec<crate::db::DownloadedTrack> {
+    use lofty::file::TaggedFileExt;
+    use lofty::tag::Accessor;
+
+    let exts = ["m4a", "mp3", "opus"];
+    let mut out = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+
+    while let Some(current) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&current) else { continue };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            match entry.file_type() {
+                Ok(ft) if ft.is_dir() => stack.push(path),
+                Ok(_) => {
+                    let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
+                    if !exts.iter().any(|e| name.to_lowercase().ends_with(e)) {
+                        continue;
+                    }
+                    let Ok(tagged) = lofty::probe::Probe::open(&path).and_then(|p| p.read()) else {
+                        continue;
+                    };
+                    let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
+                    let comment = tag.and_then(|t| t.comment()).map(|c| c.into_owned());
+
+                    // The id: comment tag first (every download writes it), then the `[id]` the
+                    // filename suffix carries. An 11-character YouTube id is unmistakable.
+                    let from_name = name
+                        .rsplit_once(" [")
+                        .and_then(|(_, rest)| rest.strip_suffix(']'))
+                        .map(str::to_owned);
+                    let video_id = comment.filter(|c| c.len() == 11).or(from_name);
+                    let Some(video_id) = video_id else { continue };
+
+                    let stem = name
+                        .rsplit_once(" [")
+                        .map(|(stem, _)| stem)
+                        .unwrap_or_else(|| name)
+                        .trim_end()
+                        .to_owned();
+                    let title = tag
+                        .and_then(|t| t.title())
+                        .map(|t| t.into_owned())
+                        .unwrap_or_else(|| stem.clone());
+                    let artist =
+                        tag.and_then(|t| t.artist()).map(|a| a.into_owned()).unwrap_or_default();
+                    let album = tag.and_then(|t| t.album()).map(|a| a.into_owned());
+                    let downloaded_at = entry
+                        .metadata()
+                        .and_then(|m| m.modified())
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_secs() as i64)
+                        .unwrap_or(0);
+
+                    out.push(crate::db::DownloadedTrack {
+                        video_id,
+                        title,
+                        artist,
+                        album,
+                        thumbnail: None,
+                        file_path: path.to_string_lossy().into_owned(),
+                        downloaded_at,
+                    });
+                }
+                Err(_) => continue,
+            }
+        }
+    }
+    out
 }

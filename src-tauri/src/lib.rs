@@ -43,8 +43,8 @@ mod stats;
 #[cfg(target_os = "windows")]
 mod taskbar;
 mod tray;
+mod tunnel;
 mod videoproxy;
-mod warp;
 mod webview;
 mod windowtitle;
 
@@ -955,25 +955,25 @@ pub fn run() {
                     }
                 });
             // Before the first fetch: the shared client builds itself on first use.
-            // The embedded WARP tunnel (Settings ▸ General, experimental): when it was left on,
+            // The embedded WireGuard tunnel (Settings ▸ General, experimental): when it was left on,
             // stand it up before any client exists, so the very first request already goes through
             // it. First-ever enable registers with Cloudflare, which can take a few seconds; on
             // failure fall back to the manual proxy and let the UI's status line say why.
-            let warp_manager = warp::WarpManager::new(handle.clone());
-            let warp_ports = if db.get_setting("warp_enabled").as_deref() == Some("true") {
+            let tunnel_manager = tunnel::TunnelManager::new(handle.clone());
+            let tunnel_ports = if db.get_setting("warp_enabled").as_deref() == Some("true") {
                 // Setup runs before the event loop: a blocking wait is fine, and the tunnel has
                 // to be up before the clients below are built. First-ever enable registers with
                 // Cloudflare, which can take a few seconds.
-                tauri::async_runtime::block_on(warp_manager.start(&db)).ok()
+                tauri::async_runtime::block_on(tunnel_manager.start(&db)).ok()
             } else {
                 None
             };
             // The tunnel fronts differ by consumer: API clients and webviews take SOCKS5, mpv
-            // takes the HTTP CONNECT proxy (libavformat speaks no SOCKS — `warp::http_url`).
-            let (api_proxy, mpv_proxy) = match warp_ports {
+            // takes the HTTP CONNECT proxy (libavformat speaks no SOCKS — `tunnel::http_url`).
+            let (api_proxy, mpv_proxy) = match tunnel_ports {
                 Some((socks, http)) => (
-                    Some(warp::socks_url(socks)),
-                    Some(warp::http_url(http)),
+                    Some(tunnel::socks_url(socks)),
+                    Some(tunnel::http_url(http)),
                 ),
                 None => (proxy.clone(), proxy.clone()),
             };
@@ -1104,7 +1104,7 @@ pub fn run() {
                 db.clone(),
                 handle.clone(),
                 orchestrator,
-                warp_manager,
+                tunnel_manager,
                 lt,
                 link,
                 cache_dir.clone(),
@@ -1113,6 +1113,16 @@ pub fn run() {
                 lastfm,
             ));
             app.manage(app_state.clone());
+
+            // Recover downloaded files after a reinstall: the database is empty but the files on
+            // disk carry their video id in the tags, so a scan repopulates it and nothing gets
+            // downloaded twice. Background: it walks the whole download folder with tag reads.
+            {
+                let downloads = app_state.downloads.clone();
+                tauri::async_runtime::spawn(async move {
+                    downloads.rescan_imported_files().await;
+                });
+            }
 
             // The player view's <video> pulls its bytes from Rust over loopback, so the webview
             // never sees a googlevideo URL (context/11). videoproxy.rs explains why a socket and
@@ -1594,8 +1604,8 @@ pub fn run() {
             commands::delete_all_downloads,
             commands::get_downloaded_ids,
             commands::get_downloaded_tracks,
-            commands::warp_status,
-            commands::warp_import_config,
+            commands::tunnel_status,
+            commands::tunnel_import_config,
             commands::log_ui,
         ]))
         .on_window_event(|window, event| {
