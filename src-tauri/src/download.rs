@@ -648,7 +648,10 @@ impl DownloadManager {
         }
 
         // 1. Resolve stream via orchestrator with respect to disabled stream clients
-        let app_state = self.app.state::<crate::state::AppState>();
+        // The manager registers `Arc<AppState>` (`app.manage(app_state.clone())`), so the type
+        // parameter must match — a plain `AppState` here never resolves and panics, killing the
+        // download task with its card stuck on "Connecting…" forever.
+        let app_state = self.app.state::<Arc<crate::state::AppState>>();
         let disabled_clients = app_state.disabled_clients();
         let playback_data =
             match self.orchestrator.resolve_download(&video_id, is_upload, &disabled_clients).await
