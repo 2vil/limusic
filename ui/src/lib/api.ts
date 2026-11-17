@@ -1766,3 +1766,8 @@ export const onDownloadedUpdated = (cb: () => void): Promise<UnlistenFn> =>
 /** Re-walk the download folder now; returns how many files were (re)registered. */
 export const rescanDownloads = () => invoke<number>('rescan_downloads');
 
+export const retryDownload = (taskId: string) => invoke<void>('retry_download', { taskId });
+export const retryAllFailedDownloads = () => invoke<number>('retry_all_failed_downloads');
+export const dismissFailedDownload = (taskId: string) =>
+	invoke<void>('dismiss_failed_download', { taskId });
+

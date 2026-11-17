@@ -3070,6 +3070,24 @@ pub async fn rescan_downloads(state: St<'_>) -> Result<usize, String> {
     Ok(state.downloads.rescan_imported_files().await)
 }
 
+/// Re-enqueue one failed download with everything it remembers.
+#[tauri::command]
+pub fn retry_download(state: St<'_>, task_id: String) -> Result<(), String> {
+    state.downloads.retry_failed(&task_id)
+}
+
+/// Re-enqueue every failed download. Returns how many were queued again.
+#[tauri::command]
+pub fn retry_all_failed_downloads(state: St<'_>) -> Result<usize, String> {
+    Ok(state.downloads.retry_all_failed())
+}
+
+/// Dismiss a failed task from the panel (the card stays gone; no re-download is attempted).
+#[tauri::command]
+pub fn dismiss_failed_download(state: St<'_>, task_id: String) -> Result<(), String> {
+    state.downloads.dismiss_failed(&task_id)
+}
+
 /// Import a WireGuard `.conf` through the file picker, which lives in Rust on purpose: the file
 /// carries the private key, so it never crosses into the webview. Validated before it is stored,
 /// and the tunnel is rebuilt over it right away when it is already up. Returns the file's name,

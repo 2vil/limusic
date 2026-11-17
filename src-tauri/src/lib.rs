@@ -1114,6 +1114,9 @@ pub fn run() {
             ));
             app.manage(app_state.clone());
 
+            // The tunnel was up at launch: downloads stay at 2 concurrent through it.
+            app_state.downloads.apply_tunnel_cap(tunnel_ports.is_some());
+
             // Recover downloaded files after a reinstall: the database is empty but the files on
             // disk carry their video id in the tags, so a scan repopulates it and nothing gets
             // downloaded twice. Background: it walks the whole download folder with tag reads.
@@ -1607,6 +1610,9 @@ pub fn run() {
             commands::tunnel_status,
             commands::tunnel_import_config,
             commands::rescan_downloads,
+            commands::retry_download,
+            commands::retry_all_failed_downloads,
+            commands::dismiss_failed_download,
             commands::log_ui,
         ]))
         .on_window_event(|window, event| {

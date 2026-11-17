@@ -14,6 +14,10 @@ use tauri::{AppHandle, Emitter, Manager};
 
 const CHUNK_SIZE: u64 = 2 * 1024 * 1024; // 2 MiB chunks
 const DEFAULT_MAX_CONCURRENT_DOWNLOADS: usize = 3;
+/// While the tunnel is up, this is the ceiling for parallel downloads: the smoltcp/WireGuard
+/// stack chokes under full parallel chunk load (observed: session death every couple of minutes
+/// with 3-5 streams), while two transfers sail through.
+const TUNNEL_CONCURRENCY_CAP: usize = 2;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -40,6 +44,9 @@ pub struct DownloadTask {
     pub status: DownloadStatus,
     pub error: Option<String>,
     pub file_path: Option<String>,
+    /// Where the download was headed (playlist subfolder). Kept on the task so a retry lands in
+    /// the same place; the failed card is the only source for it once the queue entry is gone.
+    pub subfolder: Option<String>,
 }
 
 pub struct DownloadManager {
@@ -48,6 +55,10 @@ pub struct DownloadManager {
     semaphore: Arc<tokio::sync::Semaphore>,
     current_concurrency: std::sync::atomic::AtomicUsize,
     pending_reductions: Arc<std::sync::atomic::AtomicUsize>,
+    /// When the WireGuard tunnel is up, downloads are capped at 2 concurrent streams: the
+    /// smoltcp/WireGuard stack chokes under full parallel chunk load (observed: session death
+    /// every couple of minutes with 3-5 streams), while single transfers sail through.
+    tunnel_cap: std::sync::atomic::AtomicBool,
     app: AppHandle,
     db: Arc<crate::db::Db>,
     orchestrator: Arc<crate::orchestrator::Orchestrator>,
@@ -70,6 +81,7 @@ impl DownloadManager {
             semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
             current_concurrency: std::sync::atomic::AtomicUsize::new(concurrency),
             pending_reductions: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            tunnel_cap: std::sync::atomic::AtomicBool::new(false),
             app,
             db,
             orchestrator,
@@ -99,6 +111,7 @@ impl DownloadManager {
                     status: DownloadStatus::Completed,
                     error: None,
                     file_path: Some(t.file_path),
+                    subfolder: None,
                 });
             } else {
                 let _ = self.db.delete_download(&t.video_id);
@@ -359,7 +372,7 @@ impl DownloadManager {
     /// Persist a new concurrency limit to the DB and update the active semaphore.
     pub fn set_concurrency(&self, n: usize) {
         use std::sync::atomic::Ordering;
-        let n = n.clamp(1, 5);
+        let n = self.effective_concurrency(n.clamp(1, 5));
         let old = self.current_concurrency.swap(n, Ordering::SeqCst);
         self.db.set_setting("download_concurrency", &n.to_string());
         if n > old {
@@ -388,6 +401,83 @@ impl DownloadManager {
             if still_needed > 0 {
                 self.pending_reductions.fetch_add(still_needed, Ordering::SeqCst);
             }
+        }
+    }
+
+    /// The concurrency limit actually in force: the tunnel cap halves it while the tunnel is up.
+    fn effective_concurrency(&self, base: usize) -> usize {
+        use std::sync::atomic::Ordering;
+        let base = base.clamp(1, 5);
+        if self.tunnel_cap.load(Ordering::SeqCst) {
+            base.min(TUNNEL_CONCURRENCY_CAP)
+        } else {
+            base
+        }
+    }
+
+    /// Apply the tunnel's concurrency cap (or lift it). Re-applying the stored base keeps the
+    /// slider honest: the user's choice resumes untouched when the tunnel goes away.
+    pub fn apply_tunnel_cap(&self, on: bool) {
+        use std::sync::atomic::Ordering;
+        let base = self
+            .db
+            .get_setting("download_concurrency")
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(DEFAULT_MAX_CONCURRENT_DOWNLOADS)
+            .clamp(1, 5);
+        self.tunnel_cap.store(on, Ordering::SeqCst);
+        self.set_concurrency(base);
+    }
+
+    /// Re-enqueue one failed task with everything it remembers (including its subfolder).
+    pub fn retry_failed(self: &Arc<Self>, task_id: &str) -> Result<(), String> {
+        let task = {
+            let mut guard = self.tasks.lock().map_err(|_| "task list locked".to_string())?;
+            match guard.iter().position(|t| t.id == task_id && t.status == DownloadStatus::Failed) {
+                Some(idx) => guard.remove(idx),
+                None => return Err("task not found or not failed".to_string()),
+            }
+        };
+        self.queue_song(
+            task.video_id,
+            task.title,
+            task.artist,
+            task.album,
+            task.thumbnail,
+            false,
+            task.subfolder,
+        );
+        Ok(())
+    }
+
+    /// Re-enqueue every failed task. Returns how many were queued again.
+    pub fn retry_all_failed(self: &Arc<Self>) -> usize {
+        let ids: Vec<String> = match self.tasks.lock() {
+            Ok(guard) => guard
+                .iter()
+                .filter(|t| t.status == DownloadStatus::Failed)
+                .map(|t| t.id.clone())
+                .collect(),
+            Err(_) => return 0,
+        };
+        let mut queued = 0usize;
+        for id in &ids {
+            if self.retry_failed(id).is_ok() {
+                queued += 1;
+            }
+        }
+        queued
+    }
+
+    /// Drop a failed task from the list (the ✕ on its card). Re-enqueuable later via retry.
+    pub fn dismiss_failed(&self, task_id: &str) -> Result<(), String> {
+        let mut guard = self.tasks.lock().map_err(|_| "task list locked".to_string())?;
+        match guard.iter().position(|t| t.id == task_id && t.status == DownloadStatus::Failed) {
+            Some(idx) => {
+                guard.remove(idx);
+                Ok(())
+            }
+            None => Err("task not found or not failed".to_string()),
         }
     }
 
@@ -491,6 +581,7 @@ impl DownloadManager {
                     status: DownloadStatus::Completed,
                     error: None,
                     file_path: Some(existing.file_path),
+                    subfolder: subfolder.clone(),
                 };
                 let _ = self.app.emit("download-progress", task.clone());
                 return task.id;
@@ -530,6 +621,7 @@ impl DownloadManager {
                 status: DownloadStatus::Completed,
                 error: None,
                 file_path: Some(file_str),
+                subfolder: subfolder.clone(),
             };
             let _ = self.app.emit("download-progress", task.clone());
             return task.id;
@@ -549,6 +641,7 @@ impl DownloadManager {
             status: DownloadStatus::Queued,
             error: None,
             file_path: None,
+            subfolder: subfolder.clone(),
         };
 
         if let Ok(mut tasks) = self.tasks.lock() {
@@ -568,13 +661,65 @@ impl DownloadManager {
         let mgr = Arc::clone(self);
         let task_id = id.clone();
         tauri::async_runtime::spawn(async move {
-            mgr.run_download(
+            mgr.run_download_with_retries(
                 task_id, video_id, title, artist, album, thumbnail, is_upload, subfolder,
             )
             .await;
         });
 
         id
+    }
+
+    /// Wraps [`run_download`] with automatic retries. Through the tunnel, network failures are
+    /// the norm rather than the exception — the WireGuard session dies under load and the
+    /// watchdog rebuilds it shortly after — so a failure is a reason to try again, not to give
+    /// up. The card shows queued-with-reason while backing off, and becomes Failed only after
+    /// [`MAX_DOWNLOAD_ATTEMPTS`] misses.
+    async fn run_download_with_retries(
+        &self,
+        task_id: String,
+        video_id: String,
+        title: String,
+        artist: String,
+        album: Option<String>,
+        thumbnail: Option<String>,
+        is_upload: bool,
+        subfolder: Option<String>,
+    ) {
+        const MAX_ATTEMPTS: u32 = 3;
+        let mut last_error = String::new();
+        for attempt in 1..=MAX_ATTEMPTS {
+            if attempt > 1 {
+                let wait = Duration::from_secs(20 * u64::from(attempt - 1)); // 20 s, then 40 s
+                let note = format!("retry {attempt}/{MAX_ATTEMPTS} after {wait:?}");
+                self.update_task(&task_id, |t| {
+                    t.status = DownloadStatus::Queued;
+                    t.error = Some(note.clone());
+                });
+                tracing::warn!(attempt, error = %last_error, "retrying download after backoff");
+                tokio::time::sleep(wait).await;
+                if self.is_cancelled(&task_id) {
+                    return;
+                }
+            }
+            match self
+                .run_download(
+                    task_id.clone(),
+                    video_id.clone(),
+                    title.clone(),
+                    artist.clone(),
+                    album.clone(),
+                    thumbnail.clone(),
+                    is_upload,
+                    subfolder.clone(),
+                )
+                .await
+            {
+                Ok(()) => return,
+                Err(e) => last_error = e,
+            }
+        }
+        self.fail_task(&task_id, last_error);
     }
 
     async fn run_download(
@@ -587,15 +732,15 @@ impl DownloadManager {
         thumbnail: Option<String>,
         is_upload: bool,
         subfolder: Option<String>,
-    ) {
+    ) -> Result<(), String> {
         use std::sync::atomic::Ordering;
         let _permit = loop {
             if self.is_cancelled(&task_id) {
-                return;
+                return Ok(());
             }
             let p = match self.semaphore.acquire().await {
                 Ok(p) => p,
-                Err(_) => return,
+                Err(_) => return Ok(()),
             };
             // Honor pending concurrency reductions: if the limit was lowered while permits were
             // in-flight, consume this slot to reduce semaphore capacity, then re-wait for a valid slot.
@@ -619,7 +764,7 @@ impl DownloadManager {
         };
 
         if self.is_cancelled(&task_id) {
-            return;
+            return Ok(());
         }
 
         // Before starting any network download, check if file already exists on disk
@@ -647,7 +792,7 @@ impl DownloadManager {
                 t.progress = 100.0;
                 t.file_path = Some(file_str);
             });
-            return;
+            return Ok(());
         }
 
         self.update_task(&task_id, |t| {
@@ -662,8 +807,7 @@ impl DownloadManager {
         };
 
         if let Err(e) = tokio::fs::create_dir_all(&target_dir).await {
-            self.fail_task(&task_id, format!("Cannot create folder: {e}"));
-            return;
+            return Err(format!("Cannot create folder: {e}"));
         }
 
         // 1. Resolve stream via orchestrator with respect to disabled stream clients
@@ -677,8 +821,7 @@ impl DownloadManager {
             {
                 Ok(data) => data,
                 Err(e) => {
-                    self.fail_task(&task_id, format!("Failed to resolve stream: {e:?}"));
-                    return;
+                    return Err(format!("Failed to resolve stream: {e:?}"));
                 }
             };
 
@@ -698,8 +841,7 @@ impl DownloadManager {
         let mut file = match tokio::fs::File::create(&part_path).await {
             Ok(f) => f,
             Err(e) => {
-                self.fail_task(&task_id, format!("Cannot create file: {e}"));
-                return;
+                return Err(format!("Cannot create file: {e}"));
             }
         };
 
@@ -711,7 +853,7 @@ impl DownloadManager {
         loop {
             if self.is_cancelled(&task_id) {
                 let _ = tokio::fs::remove_file(&part_path).await;
-                return;
+                return Ok(());
             }
 
             let last = if total_bytes > 0 {
@@ -743,13 +885,11 @@ impl DownloadManager {
                 }
                 Ok(r) => {
                     let _ = tokio::fs::remove_file(&part_path).await;
-                    self.fail_task(&task_id, format!("HTTP error: {}", r.status()));
-                    return;
+                    return Err(format!("HTTP error: {}", r.status()));
                 }
                 Err(e) => {
                     let _ = tokio::fs::remove_file(&part_path).await;
-                    self.fail_task(&task_id, format!("Download network error: {e}"));
-                    return;
+                    return Err(format!("Download network error: {e}"));
                 }
             };
 
@@ -759,11 +899,9 @@ impl DownloadManager {
             if pos > 0 {
                 if status != reqwest::StatusCode::PARTIAL_CONTENT {
                     let _ = tokio::fs::remove_file(&part_path).await;
-                    self.fail_task(
-                        &task_id,
-                        format!("Server ignored Range request for byte {pos} (status {status})"),
-                    );
-                    return;
+                    return Err(format!(
+                        "Server ignored Range request for byte {pos} (status {status})"
+                    ));
                 }
                 if let Some(cr) =
                     resp.headers().get(reqwest::header::CONTENT_RANGE).and_then(|v| v.to_str().ok())
@@ -773,11 +911,9 @@ impl DownloadManager {
                             if let Ok(start) = range_part[..dash].trim().parse::<u64>() {
                                 if start != pos {
                                     let _ = tokio::fs::remove_file(&part_path).await;
-                                    self.fail_task(
-                                        &task_id,
-                                        format!("Content-Range start mismatch: expected {pos}, got {start}"),
-                                    );
-                                    return;
+                                    return Err(format!(
+                                        "Content-Range start mismatch: expected {pos}, got {start}"
+                                    ));
                                 }
                             }
                         }
@@ -808,15 +944,14 @@ impl DownloadManager {
             while let Some(item) = stream.next().await {
                 if self.is_cancelled(&task_id) {
                     let _ = tokio::fs::remove_file(&part_path).await;
-                    return;
+                    return Ok(());
                 }
                 match item {
                     Ok(bytes) => {
                         let len = bytes.len() as u64;
                         if let Err(e) = file.write_all(&bytes).await {
                             let _ = tokio::fs::remove_file(&part_path).await;
-                            self.fail_task(&task_id, format!("File write error: {e}"));
-                            return;
+                            return Err(format!("File write error: {e}"));
                         }
                         chunk_bytes += len;
                         pos += len;
@@ -844,8 +979,7 @@ impl DownloadManager {
                     }
                     Err(e) => {
                         let _ = tokio::fs::remove_file(&part_path).await;
-                        self.fail_task(&task_id, format!("Stream read error: {e}"));
-                        return;
+                        return Err(format!("Stream read error: {e}"));
                     }
                 }
             }
@@ -856,11 +990,7 @@ impl DownloadManager {
             if chunk_bytes == 0 {
                 if total_bytes > 0 {
                     let _ = tokio::fs::remove_file(&part_path).await;
-                    self.fail_task(
-                        &task_id,
-                        format!("Download ended early at {pos} of {total_bytes} bytes"),
-                    );
-                    return;
+                    return Err(format!("Download ended early at {pos} of {total_bytes} bytes"));
                 }
                 break;
             }
@@ -868,25 +998,23 @@ impl DownloadManager {
 
         if let Err(e) = file.flush().await {
             let _ = tokio::fs::remove_file(&part_path).await;
-            self.fail_task(&task_id, format!("File flush error: {e}"));
-            return;
+            return Err(format!("File flush error: {e}"));
         }
         drop(file);
 
         if self.is_cancelled(&task_id) {
             let _ = tokio::fs::remove_file(&part_path).await;
-            return;
+            return Ok(());
         }
 
         // Rename part to final path
         if let Err(e) = tokio::fs::rename(&part_path, &final_path).await {
-            self.fail_task(&task_id, format!("File rename error: {e}"));
-            return;
+            return Err(format!("File rename error: {e}"));
         }
 
         if self.is_cancelled(&task_id) {
             let _ = tokio::fs::remove_file(&final_path).await;
-            return;
+            return Ok(());
         }
 
         // 4. Tagging
@@ -965,7 +1093,7 @@ impl DownloadManager {
 
         if self.is_cancelled(&task_id) {
             let _ = tokio::fs::remove_file(&final_path).await;
-            return;
+            return Ok(());
         }
 
         let final_path_clone = final_path.clone();
@@ -995,7 +1123,7 @@ impl DownloadManager {
 
         if self.is_cancelled(&task_id) {
             let _ = tokio::fs::remove_file(&final_path).await;
-            return;
+            return Ok(());
         }
 
         let final_path_str = final_path.to_string_lossy().to_string();
@@ -1019,6 +1147,7 @@ impl DownloadManager {
             t.progress = 100.0;
             t.file_path = Some(final_path_str);
         });
+        Ok(())
     }
 
     fn is_cancelled(&self, task_id: &str) -> bool {

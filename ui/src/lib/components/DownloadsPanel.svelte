@@ -12,13 +12,32 @@
 		RefreshIcon,
 		StopCircleIcon
 	} from '@hugeicons/core-free-icons';
-	import { downloadQueue, cancelTask, cancelAll, clearCompleted, rescanDownloads } from '$lib/download.svelte';
+	import {
+		downloadQueue,
+		cancelTask,
+		cancelAll,
+		clearCompleted,
+		rescanDownloads,
+		retryTask,
+		retryAllFailed,
+		dismissTask
+	} from '$lib/download.svelte';
 	import * as api from '$lib/api';
 	import { t } from '$lib/i18n.svelte';
 	import { toast } from '$lib/player.svelte';
 	import { thumb } from '$lib/thumb';
 
 	let rescanning = $state(false);
+
+	function friendlyError(error: string | undefined): string {
+		const e = error ?? '';
+		if (e.includes('Unreachable') || e.includes('AllClientsFailed'))
+			return t('download.err_unreachable');
+		if (e.includes('Stream read error') || e.includes('error decoding'))
+			return t('download.err_transfer');
+		if (e.includes('error sending request')) return t('download.err_unreachable');
+		return e || t('download.status_failed');
+	}
 
 	async function rescan() {
 		if (rescanning) return;
@@ -65,6 +84,16 @@
 				<h2 class="text-base font-semibold text-foreground">{t('download.title')}</h2>
 			</div>
 			<div class="flex items-center gap-1">
+				{#if downloadQueue.tasks.some((t) => t.status === 'failed')}
+					<button
+						class="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent/10 hover:text-foreground"
+						onclick={() => void retryAllFailed()}
+						title={t('download.retry_all')}
+						aria-label={t('download.retry_all')}
+					>
+						<HugeiconsIcon icon={RefreshIcon} class="h-4 w-4" />
+					</button>
+				{/if}
 				<button
 					class="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent/10 hover:text-foreground"
 					onclick={() => void rescan()}
@@ -156,11 +185,24 @@
 									<span class="text-emerald-500" title={t('download.status_completed')}>
 										<HugeiconsIcon icon={CheckmarkCircle01Icon} class="h-4 w-4" />
 									</span>
-								{:else if task.status === 'failed'}
-									<span class="text-destructive" title={task.error || t('download.status_failed')}>
-										<HugeiconsIcon icon={Alert02Icon} class="h-4 w-4" />
-									</span>
-								{:else if task.status === 'downloading' || task.status === 'queued'}
+							{:else if task.status === 'failed'}
+									<button
+										class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent/10 hover:text-foreground"
+										onclick={() => void retryTask(task.id)}
+										title={t('download.retry')}
+										aria-label={t('download.retry')}
+									>
+										<HugeiconsIcon icon={RefreshIcon} class="h-3.5 w-3.5" />
+									</button>
+									<button
+										class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+										onclick={() => dismissTask(task.id)}
+										title={t('common.close')}
+										aria-label={t('common.close')}
+									>
+										<HugeiconsIcon icon={Cancel01Icon} class="h-3.5 w-3.5" />
+									</button>
+							{:else if task.status === 'downloading' || task.status === 'queued'}
 									<button
 										class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 										onclick={() => cancelTask(task.id)}
@@ -203,12 +245,16 @@
 							</div>
 						{:else if task.status === 'queued'}
 							<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-								<HugeiconsIcon icon={Loading03Icon} class="h-3.5 w-3.5 animate-spin opacity-60" />
-								<span>{t('download.status_queued')}</span>
+								{#if task.error}
+									<span class="truncate" title={task.error}>{task.error}</span>
+								{:else}
+									<HugeiconsIcon icon={Loading03Icon} class="h-3.5 w-3.5 animate-spin opacity-60" />
+									<span>{t('download.status_queued')}</span>
+								{/if}
 							</div>
 						{:else if task.status === 'failed'}
 							<p class="truncate text-xs text-destructive" title={task.error}>
-								{task.error || t('download.status_failed')}
+								{friendlyError(task.error)}
 							</p>
 						{:else if task.status === 'cancelled'}
 							<p class="text-xs text-muted-foreground">{t('download.status_cancelled')}</p>

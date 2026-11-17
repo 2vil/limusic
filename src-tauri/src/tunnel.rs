@@ -94,7 +94,8 @@ fn normalize_conf(conf: &str) -> String {
 
 /// The stored `.conf`, or `None` until one is imported.
 fn imported_conf(db: &Db) -> Option<String> {
-    db.get_setting("warp_conf") // historical key name, kept.filter(|c| !c.trim().is_empty()).map(|c| normalize_conf(&c))
+    // Historical key name, kept: renaming it would lose an existing toggle and imported config.
+    db.get_setting("warp_conf").filter(|c| !c.trim().is_empty()).map(|c| normalize_conf(&c))
 }
 
 pub struct TunnelManager {
@@ -239,6 +240,9 @@ fn apply_tunnel_proxy(app: AppHandle, socks: u16, http: u16) {
         if let Err(e) = state.orchestrator.set_proxy(Some(&socks_url)) {
             tracing::warn!("the InnerTube transport did not take the new proxy: {e}");
         }
+        // Parallel chunk streams through one WireGuard interface choke the stack; two at a time
+        // is the ceiling that survives (see DownloadManager::apply_tunnel_cap).
+        state.downloads.apply_tunnel_cap(true);
     }
 }
 
@@ -253,6 +257,7 @@ fn apply_manual_proxy(app: AppHandle, proxy: Option<&str>) {
         if let Err(e) = state.orchestrator.set_proxy(proxy) {
             tracing::warn!("the InnerTube transport did not take the restored proxy: {e}");
         }
+        state.downloads.apply_tunnel_cap(false);
     }
 }
 

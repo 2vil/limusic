@@ -79,6 +79,33 @@ async function refreshDownloadedState() {
 
 /** The Downloads panel's re-scan button: the launch scan, on demand. The backend emits
  * `downloaded-updated` either way, which refreshes the reactive set; returns the count. */
+export async function retryTask(taskId: string): Promise<void> {
+	try {
+		await api.retryDownload(taskId);
+	} catch (e) {
+		toast.error(String(e));
+	}
+}
+
+export async function retryAllFailed(): Promise<void> {
+	try {
+		const queued = await api.retryAllFailedDownloads();
+		if (queued > 0) toast.success(t('download.retry_all_queued', { count: queued }));
+		else toast.info(t('download.retry_all_none'));
+	} catch (e) {
+		toast.error(String(e));
+	}
+}
+
+export async function dismissTask(taskId: string): Promise<void> {
+	try {
+		await api.dismissFailedDownload(taskId);
+		downloadQueue.tasks = downloadQueue.tasks.filter((t) => t.id !== taskId);
+	} catch (e) {
+		toast.error(String(e));
+	}
+}
+
 export async function rescanDownloads(): Promise<number> {
 	if (scanInFlight) return 0;
 	scanInFlight = true;
@@ -111,6 +138,14 @@ export async function initDownloads() {
 		if (task.status === 'cancelled') {
 			downloadQueue.tasks = downloadQueue.tasks.filter((t) => t.id !== task.id);
 			return;
+		}
+
+		// A retry re-enqueues under a fresh id: drop the failed card it replaces, so the panel
+		// never shows both the dead entry and its live successor.
+		if (task.status === 'queued' || task.status === 'downloading') {
+			downloadQueue.tasks = downloadQueue.tasks.filter(
+				(t) => !(t.video_id === task.video_id && t.status === 'failed' && t.id !== task.id)
+			);
 		}
 
 		const idx = downloadQueue.tasks.findIndex((t) => t.id === task.id);
