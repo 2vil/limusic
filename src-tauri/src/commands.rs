@@ -3076,6 +3076,12 @@ pub fn retry_download(state: St<'_>, task_id: String) -> Result<(), String> {
     state.downloads.retry_failed(&task_id)
 }
 
+/// Delete a downloaded track: file + database row. The green check reverts to a download button.
+#[tauri::command]
+pub fn delete_downloaded_file(state: St<'_>, video_id: String) -> Result<(), String> {
+    state.downloads.delete_downloaded(&video_id)
+}
+
 /// Re-enqueue every failed download. Returns how many were queued again.
 #[tauri::command]
 pub fn retry_all_failed_downloads(state: St<'_>) -> Result<usize, String> {

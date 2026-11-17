@@ -1882,7 +1882,6 @@
 	},
 	"download": {
 		"title": "Downloads",
-		"download": "Download",
 		"download_track": "Download track",
 		"download_playlist": "Download playlist",
 		"download_album": "Download album",
@@ -1921,6 +1920,9 @@
 		"delete_all_hint": "Permanently remove all downloaded audio files from disk.",
 		"delete_all_confirm": "Delete all downloaded files?",
 		"delete_all_confirm_desc": "This will permanently delete all downloaded audio files from your device. This action cannot be undone.",
-		"delete_all_success": "All downloads deleted"
+		"delete_all_success": "All downloads deleted",
+		"download": "Download",
+		"delete": "Delete downloaded file",
+		"deleted": "Deleted \"{title}\""
 	}
 }

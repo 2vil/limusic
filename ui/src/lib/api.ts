@@ -1766,6 +1766,10 @@ export const onDownloadedUpdated = (cb: () => void): Promise<UnlistenFn> =>
 /** Re-walk the download folder now; returns how many files were (re)registered. */
 export const rescanDownloads = () => invoke<number>('rescan_downloads');
 
+/** Delete a downloaded track: file off the disk, row off the database. */
+export const deleteDownloadedFile = (videoId: string) =>
+	invoke<void>('delete_downloaded_file', { videoId });
+
 export const retryDownload = (taskId: string) => invoke<void>('retry_download', { taskId });
 export const retryAllFailedDownloads = () => invoke<number>('retry_all_failed_downloads');
 export const dismissFailedDownload = (taskId: string) =>

@@ -1610,6 +1610,7 @@ pub fn run() {
             commands::tunnel_status,
             commands::tunnel_import_config,
             commands::rescan_downloads,
+            commands::delete_downloaded_file,
             commands::retry_download,
             commands::retry_all_failed_downloads,
             commands::dismiss_failed_download,

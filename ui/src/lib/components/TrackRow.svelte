@@ -10,12 +10,17 @@
 		VolumeHighIcon,
 		Download04Icon,
 		Loading03Icon,
-		CheckmarkCircle02Icon
+		CheckmarkCircle02Icon,
+		Delete02Icon
 	} from '@hugeicons/core-free-icons';
 	import LogoMark from './LogoMark.svelte';
 	import * as api from '$lib/api';
 	import type { SongItem } from '$lib/api';
-	import { downloadSong, getSongDownloadState } from '$lib/download.svelte';
+	import {
+		deleteDownloaded,
+		downloadSong,
+		getSongDownloadState
+	} from '$lib/download.svelte';
 	import { thumb } from '$lib/thumb';
 	import { lt } from '$lib/lt.svelte';
 	import { goto } from '$app/navigation';
@@ -161,6 +166,9 @@
 	// applies to its like item). The compact variant has no room: it keeps its single heart.
 	const showRating = $derived(!compact && !hideRating && !api.isLocalId(song.video_id));
 	const downloadState = $derived(getSongDownloadState(song.video_id));
+	// Hover swap: the green check reads "downloaded" at rest and turns into a delete (trash) only
+	// while the pointer is on the button.
+	let deleteHovered = $state(false);
 
 	// Your own playlists holding this song, for the "saved" mark. Gated on `showRating` because it
 	// answers the same three questions: a local file is in no YTM playlist, and the compact and
@@ -472,12 +480,23 @@
 							<HugeiconsIcon icon={Loading03Icon} class="h-4 w-4 animate-spin" />
 						</span>
 					{:else if downloadState === 'downloaded'}
-						<span
-							class="flex h-7 w-7 items-center justify-center text-emerald-500"
-							title={t('download.downloaded')}
+						<button
+							class="flex h-7 w-7 items-center justify-center rounded-md text-emerald-500 transition hover:bg-destructive/20 hover:text-destructive"
+							title={t('download.delete')}
+							aria-label={t('download.delete')}
+							onmouseenter={() => (deleteHovered = true)}
+							onmouseleave={() => (deleteHovered = false)}
+							onclick={(e) => {
+								e.stopPropagation();
+								deleteDownloaded(song.video_id, song.title);
+							}}
 						>
-							<HugeiconsIcon icon={CheckmarkCircle02Icon} class="h-4 w-4" />
-						</span>
+							{#if deleteHovered}
+								<HugeiconsIcon icon={Delete02Icon} class="h-4 w-4" />
+							{:else}
+								<HugeiconsIcon icon={CheckmarkCircle02Icon} class="h-4 w-4" />
+							{/if}
+						</button>
 					{:else}
 						<button
 							class="invisible flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent/20 hover:text-foreground group-focus-within:visible group-hover:visible"

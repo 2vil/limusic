@@ -77,6 +77,23 @@ async function refreshDownloadedState() {
 	downloadedCovers = nextCovers;
 }
 
+/** Delete a downloaded track: file off the disk, row off the database, check off the row. */
+export async function deleteDownloaded(videoId: string, title: string): Promise<void> {
+	try {
+		await api.deleteDownloadedFile(videoId);
+		const nextSet = new Set(downloadedSet);
+		nextSet.delete(videoId);
+		downloadedSet = nextSet;
+		const nextCovers = new Map(downloadedCovers);
+		nextCovers.delete(videoId);
+		downloadedCovers = nextCovers;
+		downloadQueue.tasks = downloadQueue.tasks.filter((t) => t.video_id !== videoId);
+		toast.success(t('download.deleted', { title }));
+	} catch (e) {
+		toast.error(String(e));
+	}
+}
+
 /** The Downloads panel's re-scan button: the launch scan, on demand. The backend emits
  * `downloaded-updated` either way, which refreshes the reactive set; returns the count. */
 export async function retryTask(taskId: string): Promise<void> {

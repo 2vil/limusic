@@ -13,6 +13,9 @@ use futures_util::StreamExt;
 use tauri::{AppHandle, Emitter, Manager};
 
 const CHUNK_SIZE: u64 = 2 * 1024 * 1024; // 2 MiB chunks
+/// Transient-failure retries per 2 MiB chunk (tunnel blip, packet loss). With the growing pause
+/// this is ~50 s of patience per chunk — enough to outlive a watchdog rebuild.
+const CHUNK_RETRIES: u32 = 4;
 const DEFAULT_MAX_CONCURRENT_DOWNLOADS: usize = 3;
 /// While the tunnel is up, this is the ceiling for parallel downloads: the smoltcp/WireGuard
 /// stack chokes under full parallel chunk load (observed: session death every couple of minutes
@@ -484,6 +487,29 @@ impl DownloadManager {
         queued
     }
 
+    /// Delete a downloaded track: file off the disk, row off the database, card off the panel.
+    /// The green check becomes a plain download button again.
+    pub fn delete_downloaded(&self, video_id: &str) -> Result<(), String> {
+        let track = self
+            .db
+            .get_downloaded_track(video_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "this track is not registered as downloaded".to_string())?;
+        if let Err(e) = std::fs::remove_file(&track.file_path) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                return Err(format!("could not delete the file: {e}"));
+            }
+        }
+        self.db
+            .delete_download(video_id)
+            .map_err(|e| format!("could not update the database: {e}"))?;
+        if let Ok(mut guard) = self.tasks.lock() {
+            guard.retain(|t| t.video_id != video_id);
+        }
+        let _ = self.app.emit("downloaded-updated", 0);
+        Ok(())
+    }
+
     /// Drop a failed task from the list (the ✕ on its card). Re-enqueuable later via retry.
     pub fn dismiss_failed(&self, task_id: &str) -> Result<(), String> {
         let mut guard = self.tasks.lock().map_err(|_| "task list locked".to_string())?;
@@ -910,128 +936,178 @@ impl DownloadManager {
                 pos + CHUNK_SIZE - 1
             };
 
-            let mut req = client
-                .get(&playback_data.stream_url)
-                .header(reqwest::header::RANGE, format!("bytes={pos}-{last}"))
-                .timeout(Duration::from_secs(30));
-
-            for (k, v) in &playback_data.headers {
-                if let (Ok(hk), Ok(hv)) = (
-                    reqwest::header::HeaderName::from_bytes(k.as_bytes()),
-                    reqwest::header::HeaderValue::from_str(v),
-                ) {
-                    req = req.header(hk, hv);
-                }
-            }
-
-            let resp = match req.send().await {
-                Ok(r)
-                    if r.status().is_success()
-                        || r.status() == reqwest::StatusCode::PARTIAL_CONTENT =>
-                {
-                    r
-                }
-                Ok(r) => {
-                    let _ = tokio::fs::remove_file(&part_path).await;
-                    return Err(format!("HTTP error: {}", r.status()));
-                }
-                Err(e) => {
-                    let _ = tokio::fs::remove_file(&part_path).await;
-                    return Err(format!("Download network error: {e}"));
-                }
-            };
-
-            // For offset > 0, the server MUST return 206 Partial Content matching the requested offset.
-            // A 200 OK would mean the server ignored Range and resent the whole file from byte 0.
-            let status = resp.status();
-            if pos > 0 {
-                if status != reqwest::StatusCode::PARTIAL_CONTENT {
-                    let _ = tokio::fs::remove_file(&part_path).await;
-                    return Err(format!(
-                        "Server ignored Range request for byte {pos} (status {status})"
-                    ));
-                }
-                if let Some(cr) =
-                    resp.headers().get(reqwest::header::CONTENT_RANGE).and_then(|v| v.to_str().ok())
-                {
-                    if let Some(range_part) = cr.strip_prefix("bytes ") {
-                        if let Some(dash) = range_part.find('-') {
-                            if let Ok(start) = range_part[..dash].trim().parse::<u64>() {
-                                if start != pos {
-                                    let _ = tokio::fs::remove_file(&part_path).await;
-                                    return Err(format!(
-                                        "Content-Range start mismatch: expected {pos}, got {start}"
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Extract total bytes from Content-Range
-            if total_bytes == 0 {
-                if let Some(cr) = resp.headers().get(reqwest::header::CONTENT_RANGE) {
-                    if let Ok(s) = cr.to_str() {
-                        if let Some(slash) = s.rfind('/') {
-                            if let Ok(tot) = s[slash + 1..].trim().parse::<u64>() {
-                                total_bytes = tot;
-                            }
-                        }
-                    }
-                }
-                if total_bytes == 0 {
-                    if let Some(cl) = resp.content_length() {
-                        total_bytes = cl;
-                    }
-                }
-            }
-
-            let mut stream = resp.bytes_stream();
-            let mut chunk_bytes: u64 = 0;
-            while let Some(item) = stream.next().await {
+            // One chunk = one ranged request streamed into the part file. Transient failures
+            // (tunnel blip, packet loss through the WireGuard stack) retry the SAME range with a
+            // growing pause — the watchdog rebuilds the interface within ~40 s, so a patient
+            // chunk outlives the outage. The file is truncated back to `pos` before each retry:
+            // bytes of a failed attempt must not leak into the stream. Hard errors (HTTP status,
+            // server ignoring Range) fail the task — its own retry re-resolves the URL.
+            let mut chunk_retries: u32 = 0;
+            let chunk_bytes: u64 = loop {
                 if self.is_cancelled(&task_id) {
                     let _ = tokio::fs::remove_file(&part_path).await;
                     return Ok(());
                 }
-                match item {
-                    Ok(bytes) => {
-                        let len = bytes.len() as u64;
-                        if let Err(e) = file.write_all(&bytes).await {
-                            let _ = tokio::fs::remove_file(&part_path).await;
-                            return Err(format!("File write error: {e}"));
-                        }
-                        chunk_bytes += len;
-                        pos += len;
-
-                        let new_pct = if total_bytes > 0 {
-                            ((pos as f64 / total_bytes as f64) * 100.0) as u32
-                        } else {
-                            0
-                        };
-                        let now_inst = std::time::Instant::now();
-                        if new_pct != last_emitted_pct
-                            || now_inst.duration_since(last_emitted_time)
-                                >= Duration::from_millis(250)
-                        {
-                            last_emitted_pct = new_pct;
-                            last_emitted_time = now_inst;
-                            self.update_task(&task_id, |t| {
-                                t.bytes_downloaded = pos;
-                                t.total_bytes = total_bytes;
-                                if total_bytes > 0 {
-                                    t.progress = ((pos as f64 / total_bytes as f64) * 100.0) as f32;
-                                }
-                            });
-                        }
-                    }
-                    Err(e) => {
+                if chunk_retries > 0 {
+                    let wait = Duration::from_secs(5 * u64::from(chunk_retries));
+                    tracing::warn!(
+                        pos,
+                        attempt = chunk_retries,
+                        "chunk failed, retrying after backoff"
+                    );
+                    tokio::time::sleep(wait).await;
+                    if self.is_cancelled(&task_id) {
                         let _ = tokio::fs::remove_file(&part_path).await;
-                        return Err(format!("Stream read error: {e}"));
+                        return Ok(());
+                    }
+                    if let Err(e) = file.set_len(pos).await {
+                        return Err(format!("File truncate error: {e}"));
+                    }
+                    use tokio::io::AsyncSeekExt as _;
+                    file.seek(std::io::SeekFrom::Start(pos))
+                        .await
+                        .map_err(|e| format!("File seek error: {e}"))?;
+                }
+
+                let mut req = client
+                    .get(&playback_data.stream_url)
+                    .header(reqwest::header::RANGE, format!("bytes={pos}-{last}"))
+                    .timeout(Duration::from_secs(30));
+
+                for (k, v) in &playback_data.headers {
+                    if let (Ok(hk), Ok(hv)) = (
+                        reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                        reqwest::header::HeaderValue::from_str(v),
+                    ) {
+                        req = req.header(hk, hv);
                     }
                 }
-            }
 
+                let resp = match req.send().await {
+                    Ok(r)
+                        if r.status().is_success()
+                            || r.status() == reqwest::StatusCode::PARTIAL_CONTENT =>
+                    {
+                        r
+                    }
+                    Ok(r) => {
+                        let status = r.status();
+                        let _ = tokio::fs::remove_file(&part_path).await;
+                        return Err(format!("HTTP error: {status}"));
+                    }
+                    Err(e) => {
+                        chunk_retries += 1;
+                        if chunk_retries > CHUNK_RETRIES {
+                            let _ = tokio::fs::remove_file(&part_path).await;
+                            return Err(format!("Download network error: {e}"));
+                        }
+                        continue;
+                    }
+                };
+
+                // For offset > 0, the server MUST return 206 Partial Content matching the requested
+                // offset. A 200 OK would mean the server ignored Range and resent the whole file
+                // from byte 0. That is a logic error, not a transient one: fail the task.
+                let status = resp.status();
+                if pos > 0 {
+                    if status != reqwest::StatusCode::PARTIAL_CONTENT {
+                        let _ = tokio::fs::remove_file(&part_path).await;
+                        return Err(format!(
+                            "Server ignored Range request for byte {pos} (status {status})"
+                        ));
+                    }
+                    if let Some(cr) = resp
+                        .headers()
+                        .get(reqwest::header::CONTENT_RANGE)
+                        .and_then(|v| v.to_str().ok())
+                    {
+                        if let Some(range_part) = cr.strip_prefix("bytes ") {
+                            if let Some(dash) = range_part.find('-') {
+                                if let Ok(start) = range_part[..dash].trim().parse::<u64>() {
+                                    if start != pos {
+                                        let _ = tokio::fs::remove_file(&part_path).await;
+                                        return Err(format!(
+                                            "Content-Range start mismatch: expected {pos}, got {start}"
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Extract total bytes from Content-Range
+                if total_bytes == 0 {
+                    if let Some(cr) = resp.headers().get(reqwest::header::CONTENT_RANGE) {
+                        if let Ok(s) = cr.to_str() {
+                            if let Some(slash) = s.rfind('/') {
+                                if let Ok(tot) = s[slash + 1..].trim().parse::<u64>() {
+                                    total_bytes = tot;
+                                }
+                            }
+                        }
+                    }
+                    if total_bytes == 0 {
+                        if let Some(cl) = resp.content_length() {
+                            total_bytes = cl;
+                        }
+                    }
+                }
+
+                let mut stream = resp.bytes_stream();
+                let mut streamed: u64 = 0;
+                let mut stream_err: Option<String> = None;
+                while let Some(item) = stream.next().await {
+                    if self.is_cancelled(&task_id) {
+                        let _ = tokio::fs::remove_file(&part_path).await;
+                        return Ok(());
+                    }
+                    match item {
+                        Ok(bytes) => {
+                            let len = bytes.len() as u64;
+                            if let Err(e) = file.write_all(&bytes).await {
+                                return Err(format!("File write error: {e}"));
+                            }
+                            pos += len;
+                            streamed += len;
+                            let new_pct = if total_bytes > 0 {
+                                ((pos as f64 / total_bytes as f64) * 100.0) as u32
+                            } else {
+                                0
+                            };
+                            let now_inst = std::time::Instant::now();
+                            if new_pct != last_emitted_pct
+                                || now_inst.duration_since(last_emitted_time)
+                                    >= Duration::from_millis(250)
+                            {
+                                last_emitted_pct = new_pct;
+                                last_emitted_time = now_inst;
+                                self.update_task(&task_id, |t| {
+                                    t.bytes_downloaded = pos;
+                                    t.total_bytes = total_bytes;
+                                    if total_bytes > 0 {
+                                        t.progress =
+                                            ((pos as f64 / total_bytes as f64) * 100.0) as f32;
+                                    }
+                                });
+                            }
+                        }
+                        Err(e) => {
+                            stream_err = Some(format!("Stream read error: {e}"));
+                            break;
+                        }
+                    }
+                }
+                if let Some(err) = stream_err {
+                    chunk_retries += 1;
+                    if chunk_retries > CHUNK_RETRIES {
+                        let _ = tokio::fs::remove_file(&part_path).await;
+                        return Err(err);
+                    }
+                    continue;
+                }
+                break streamed;
+            };
             if total_bytes > 0 && pos >= total_bytes {
                 break;
             }
