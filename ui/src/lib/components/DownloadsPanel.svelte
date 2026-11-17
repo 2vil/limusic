@@ -9,12 +9,33 @@
 		Alert02Icon,
 		MusicNote01Icon,
 		Loading03Icon,
+		RefreshIcon,
 		StopCircleIcon
 	} from '@hugeicons/core-free-icons';
-	import { downloadQueue, cancelTask, cancelAll, clearCompleted } from '$lib/download.svelte';
+	import { downloadQueue, cancelTask, cancelAll, clearCompleted, rescanDownloads } from '$lib/download.svelte';
 	import * as api from '$lib/api';
 	import { t } from '$lib/i18n.svelte';
+	import { toast } from '$lib/player.svelte';
 	import { thumb } from '$lib/thumb';
+
+	let rescanning = $state(false);
+
+	async function rescan() {
+		if (rescanning) return;
+		rescanning = true;
+		try {
+			const count = await rescanDownloads();
+			if (count > 0) {
+				toast.success(t('download.rescanned', { count }));
+			} else {
+				toast.info(t('download.rescan_none'));
+			}
+		} catch (e) {
+			toast.error(String(e));
+		} finally {
+			rescanning = false;
+		}
+	}
 
 	function formatBytes(bytes: number) {
 		if (bytes === 0) return '0 B';
@@ -44,6 +65,19 @@
 				<h2 class="text-base font-semibold text-foreground">{t('download.title')}</h2>
 			</div>
 			<div class="flex items-center gap-1">
+				<button
+					class="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent/10 hover:text-foreground"
+					onclick={() => void rescan()}
+					disabled={rescanning}
+					title={t('download.rescan')}
+					aria-label={t('download.rescan')}
+				>
+					{#if rescanning}
+						<HugeiconsIcon icon={Loading03Icon} class="h-4 w-4 animate-spin" />
+					{:else}
+						<HugeiconsIcon icon={RefreshIcon} class="h-4 w-4" />
+					{/if}
+				</button>
 				<button
 					class="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent/10 hover:text-foreground"
 					onclick={() => api.openDownloadDir()}

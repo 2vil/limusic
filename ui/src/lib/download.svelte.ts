@@ -60,6 +60,7 @@ export function getCollectionDownloadState(videoIds: (string | undefined | null)
 }
 
 let initialized = false;
+let scanInFlight = false;
 
 /** Re-read the downloaded ids/tracks from the backend into the reactive set. Called at startup
  * and again when the launch scan (after a reinstall) re-registers files from disk. */
@@ -74,6 +75,18 @@ async function refreshDownloadedState() {
 	}
 	downloadedSet = nextSet;
 	downloadedCovers = nextCovers;
+}
+
+/** The Downloads panel's re-scan button: the launch scan, on demand. The backend emits
+ * `downloaded-updated` either way, which refreshes the reactive set; returns the count. */
+export async function rescanDownloads(): Promise<number> {
+	if (scanInFlight) return 0;
+	scanInFlight = true;
+	try {
+		return await api.rescanDownloads();
+	} finally {
+		scanInFlight = false;
+	}
 }
 
 export async function initDownloads() {

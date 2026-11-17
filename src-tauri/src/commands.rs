@@ -3063,6 +3063,13 @@ pub fn tunnel_status(state: St<'_>) -> crate::tunnel::TunnelStatus {
     state.tunnel.status()
 }
 
+/// Re-walk the download folder now and re-register what is found (the launch scan, on demand).
+/// Returns how many files were (re)registered; the `downloaded-updated` event refreshes the UI.
+#[tauri::command]
+pub async fn rescan_downloads(state: St<'_>) -> Result<usize, String> {
+    Ok(state.downloads.rescan_imported_files().await)
+}
+
 /// Import a WireGuard `.conf` through the file picker, which lives in Rust on purpose: the file
 /// carries the private key, so it never crosses into the webview. Validated before it is stored,
 /// and the tunnel is rebuilt over it right away when it is already up. Returns the file's name,

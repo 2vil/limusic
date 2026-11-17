@@ -1606,6 +1606,7 @@ pub fn run() {
             commands::get_downloaded_tracks,
             commands::tunnel_status,
             commands::tunnel_import_config,
+            commands::rescan_downloads,
             commands::log_ui,
         ]))
         .on_window_event(|window, event| {

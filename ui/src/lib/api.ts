@@ -1763,3 +1763,6 @@ export const onDownloadProgress = (cb: (task: DownloadTask) => void): Promise<Un
 export const onDownloadedUpdated = (cb: () => void): Promise<UnlistenFn> =>
 	listen('downloaded-updated', () => cb());
 
+/** Re-walk the download folder now; returns how many files were (re)registered. */
+export const rescanDownloads = () => invoke<number>('rescan_downloads');
+
