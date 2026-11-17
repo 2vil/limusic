@@ -372,9 +372,12 @@ impl DownloadManager {
     /// Persist a new concurrency limit to the DB and update the active semaphore.
     pub fn set_concurrency(&self, n: usize) {
         use std::sync::atomic::Ordering;
-        let n = self.effective_concurrency(n.clamp(1, 5));
+        // Persist the user's choice (base), and apply the tunnel-capped value to the semaphore
+        // only — the cap is transient, and the slider must survive it untouched.
+        let base = n.clamp(1, 5);
+        let n = self.effective_concurrency(base);
         let old = self.current_concurrency.swap(n, Ordering::SeqCst);
-        self.db.set_setting("download_concurrency", &n.to_string());
+        self.db.set_setting("download_concurrency", &base.to_string());
         if n > old {
             let diff = n - old;
             // Offset against any pending reductions before adding fresh permits
@@ -828,8 +831,23 @@ impl DownloadManager {
         // 2. Determine file extension: Opus vs M4A with video_id suffix to prevent collisions
         let ext = if is_m4a_itag(playback_data.itag) { "m4a" } else { "opus" };
         let base_name = sanitize_filename(&title);
-        let final_path = target_dir.join(format!("{base_name}.{ext}"));
-        let part_path = target_dir.join(format!("{base_name}.{ext}.part"));
+        // The naming standard is "Title.ext". Two different videos may share a title ("Hello"),
+        // and the second one must not overwrite the first's file: when the plain name is taken by
+        // another video, ours is parked next to it with the id suffix — which the launch scanner
+        // and the existing-file match both read back.
+        let mut final_path = target_dir.join(format!("{base_name}.{ext}"));
+        if final_path.exists() {
+            let belongs_to_this_video = self
+                .db
+                .get_downloaded_track(&video_id)
+                .ok()
+                .flatten()
+                .is_some_and(|t| Path::new(&t.file_path) == final_path);
+            if !belongs_to_this_video {
+                final_path = target_dir.join(format!("{base_name} [{video_id}].{ext}"));
+            }
+        }
+        let part_path = PathBuf::from(format!("{}.part", final_path.to_string_lossy()));
 
         // 3. Download stream chunks using shared HTTP client (respects user proxy)
         let client = crate::http::client();
