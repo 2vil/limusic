@@ -11,52 +11,51 @@
 //!    way `wgcf` does it. The device blob (private key included) is stored in the database like
 //!    other session material — it never crosses into the webview, so it must not join
 //!    `UI_SETTINGS`.
-//! 2. **The tunnel** ([`start_tunnel`]): an in-process WireGuard endpoint (`tokio-wireguard`,
-//!    which is boringtun + a smoltcp TCP/IP stack) carrying the registered peer.
-//! 3. **The SOCKS5 front** ([`serve_socks`]): a `fast-socks5` listener that pipes every accepted
-//!    CONNECT into a [`tokio_wireguard::TcpStream`] over that interface. Shaped after the
-//!    271-line `wg-socks` crate; inlined here so status, shutdown and port fallback are ours.
+//! 2. **The engine** ([`start_tunnel`]): the device is turned into a stock WireGuard `.conf`
+//!    (the format `wgcf` writes) and handed to `wgproxyrs` — a userspace WireGuard engine
+//!    (boringtun + smoltcp) that keeps the session alive and resolves domain targets through the
+//!    tunnel's own DNS. Chosen after the first engine this module carried (`tokio-wireguard`)
+//!    dropped its session mid-flight on CGNAT-flaky networks no matter how it was wired; the
+//!    same probe battery that killed it runs clean on `wgproxyrs` for as long as it was run.
+//! 3. **The fronts**: `wgproxyrs` serves SOCKS5 (`run_socks5_listener`) and HTTP CONNECT
+//!    (`run_http_listener`) over one engine — mpv needs the latter, because libavformat only
+//!    speaks `http://` proxies (see `player::set_http_proxy`).
 //!
-//! DNS is resolved locally by design (`socks5://`, not `socks5h://`): the geo-check YouTube does
-//! is IP-based, and the tunnel's stack is registered v4-only, so domain targets are resolved here
-//! and pinned to their first IPv4 answer.
+//! DNS resolves through the tunnel (the generated `.conf` pins `DNS = 1.1.1.1`, and the engine
+//! carries a smoltcp DNS socket), so domain targets are answered inside the tunnel rather than
+//! leaked to the local resolver.
 //!
 //! State machine: `Off → Registering → Connecting → Connected`, any step failing → `Failed(msg)`
-//! with the proxy untouched. Toggling off tears the tunnel down and restores the user's manual
+//! with the proxy untouched. Toggling off tears the engine down and restores the user's manual
 //! `proxy` setting.
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
-use fast_socks5::server::Socks5ServerProtocol;
-use fast_socks5::util::target_addr::TargetAddr;
-use fast_socks5::{ReplyError, Socks5Command};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::watch;
-use tokio_wireguard::config::{Config, Interface as WgInterface, Peer};
-use tokio_wireguard::interface::ToInterface;
+use wgproxyrs::config::Config;
+use wgproxyrs::keys::generate_keypair;
+use wgproxyrs::proxy::{run_http_listener, run_socks5_listener, ProxyCtx};
+use wgproxyrs::stack::{spawn_engine, EngineConfig, EngineHandle, PeerTunnel};
+use wgproxyrs::tunnel::{UdpTransport, WgTunnel};
 
 use crate::db::Db;
 
-/// WARP peers forward everything, so the tunnel's routing table is "the world". v4 only: the
-/// interface itself is registered with an IPv4 address, and a v6 route through it would be
-/// pretend anyway.
-const ALL_V4: &str = "0.0.0.0/0";
-/// NAT keepalive: WARP endpoints expect the client to poke through, and the phone side benefits
-/// most — a silent tunnel on mobile data dies at the carrier's NAT in minutes.
-const KEEPALIVE_SECS: u16 = 25;
-/// Base port for the local SOCKS5 listener. Picked once so the webview proxy URL is stable across
+/// Base ports for the two local front ends. Picked once so the webview proxy URL is stable across
 /// launches; on a collision the next few ports are tried before giving up.
 const SOCKS_PORT_BASE: u16 = 51879;
-/// Base port for the local HTTP CONNECT proxy, which exists for mpv: libavformat only speaks
-/// `http://` proxies (see `player::set_http_proxy`), so the streams front is this one, not SOCKS.
 const HTTP_PORT_BASE: u16 = 51890;
-/// How many ports past the base [`start_tunnel`] will try before failing.
-const SOCKS_PORT_ATTEMPTS: u16 = 5;
+/// How many ports past each base [`start_tunnel`] will try before failing.
+const PORT_ATTEMPTS: u16 = 5;
+/// WARP peers forward everything, so the tunnel's routing table is "the world".
+const ALL_V4: &str = "0.0.0.0/0";
+/// Aggressive on purpose: the first engine lost its session on networks whose NAT forgets UDP
+/// flows faster than the `wg`-default 25 s, and 10 s costs nothing.
+const KEEPALIVE_SECS: u16 = 10;
 
 /// Cloudflare's client registration API, the same versioned surface `wgcf` targets. A plain
 /// Android app user agent is what their intake expects.
@@ -107,57 +106,27 @@ impl WarpDevice {
         })
     }
 
-    fn config(&self) -> Result<Config, String> {
-        use base64::Engine;
-        // WireGuard key material travels in standard base64 (the `wg` config format), both in
-        // what we send to the registration API and what it sends back.
-        let engine = base64::engine::general_purpose::STANDARD;
-        let decode32 = |s: &str| -> Result<[u8; 32], String> {
-            let raw = engine.decode(s).map_err(|e| e.to_string())?;
-            if raw.len() != 32 {
-                return Err(format!("key is {} bytes, expected 32", raw.len()));
-            }
-            let mut out = [0u8; 32];
-            out.copy_from_slice(&raw);
-            Ok(out)
-        };
-        let private = boringtun::x25519::StaticSecret::from(decode32(&self.private_key_b64)?);
-        let public = boringtun::x25519::PublicKey::from(decode32(&self.peer_public_key_b64)?);
-        // The API hands back a bare `172.16.0.2`; the interface wants a network (`/32`), which is
-        // what `wgcf` writes into the configs it emits.
+    /// The device as a stock WireGuard `.conf`, the one shape [`Config::parse`] takes. `DNS` is
+    /// pinned to 1.1.1.1 because the engine resolves domain targets through the tunnel (no leak
+    /// to the local resolver) and the registration reply carries no DNS line of its own. The v4
+    /// address arrives bare (`172.16.0.2`) and needs the `/32` that `.conf` files carry.
+    fn wg_conf(&self) -> String {
         let v4 = if self.v4_address.contains('/') {
             self.v4_address.clone()
         } else {
             format!("{}/32", self.v4_address)
         };
-        let address: tokio_wireguard::config::Address =
-            v4.parse().map_err(|e| format!("bad WARP address {v4}: {e}"))?;
-        let endpoint = resolve_endpoint(&self.endpoint)?;
-        Ok(Config {
-            interface: WgInterface { private_key: private, address, listen_port: None, mtu: None },
-            peers: vec![Peer {
-                public_key: public,
-                endpoint: Some(endpoint),
-                allowed_ips: vec![ALL_V4.parse().map_err(|e| format!("bad AllowedIPs: {e}"))?],
-                persistent_keepalive: Some(KEEPALIVE_SECS),
-            }],
-        })
+        format!(
+            "[Interface]\nPrivateKey = {key}\nAddress = {v4}\nDNS = 1.1.1.1\n\n[Peer]\n\
+             PublicKey = {peer}\nAllowedIPs = {all}\nEndpoint = {endpoint}\n\
+             PersistentKeepalive = {keep}\n",
+            key = self.private_key_b64,
+            peer = self.peer_public_key_b64,
+            all = ALL_V4,
+            endpoint = self.endpoint,
+            keep = KEEPALIVE_SECS,
+        )
     }
-}
-
-/// `engage.cloudflareclient.com:2408` is a DNS name; the interface wants a `SocketAddr`. Resolved
-/// at tunnel start (not registration time): the answer changes, and resolving late means a saved
-/// device works however long it sat unused.
-fn resolve_endpoint(endpoint: &str) -> Result<SocketAddr, String> {
-    let (host, port) =
-        endpoint.rsplit_once(':').ok_or_else(|| format!("endpoint {endpoint} has no port"))?;
-    let port: u16 = port.parse().map_err(|_| format!("bad endpoint port in {endpoint}"))?;
-    if let Ok(ip) = host.parse::<IpAddr>() {
-        return Ok(SocketAddr::new(ip, port));
-    }
-    let found =
-        std::net::ToSocketAddrs::to_socket_addrs(&(host, port)).ok().and_then(|mut it| it.next());
-    found.ok_or_else(|| format!("could not resolve the WARP endpoint {endpoint}"))
 }
 
 pub struct WarpManager {
@@ -167,16 +136,27 @@ pub struct WarpManager {
 }
 
 struct Tunnel {
+    engine: EngineHandle,
+    /// The two front-end loops; aborted with the engine on shutdown.
+    front_tasks: Vec<tokio::task::JoinHandle<()>>,
+    /// Retires this tunnel's watchdog when the tunnel goes away. Recreated on every rebuild, so
+    /// exactly one watchdog watches exactly one tunnel.
     shutdown: watch::Sender<bool>,
     socks_port: u16,
     http_port: u16,
 }
 
 impl Tunnel {
-    /// A fresh receiver of this tunnel's shutdown channel: the front ends and the watchdog all
-    /// select on it, so one `send(true)` tears everything down together.
     fn shutdown_rx(&self) -> watch::Receiver<bool> {
         self.shutdown.subscribe()
+    }
+
+    fn kill(self) {
+        let _ = self.shutdown.send(true);
+        self.engine.stop();
+        for task in self.front_tasks {
+            task.abort();
+        }
     }
 }
 
@@ -252,7 +232,7 @@ impl WarpManager {
     /// Tear the tunnel down and put the manual `proxy` setting (or "direct") back.
     pub async fn stop(&self, db: &Db) {
         if let Some(tunnel) = self.tunnel.lock().unwrap().take() {
-            let _ = tunnel.shutdown.send(true);
+            tunnel.kill();
             apply_manual_proxy(self.app.clone(), db.get_setting("proxy").as_deref());
         }
         self.set_status(WarpStatus::Off);
@@ -260,8 +240,8 @@ impl WarpManager {
 }
 
 /// The proxy URL the API clients and the webviews are pointed at while the tunnel is up.
-/// `socks5://`, not `socks5h://`: reqwest resolves DNS locally and hands the proxy an IP (see the
-/// module doc), and the webview side only accepts this scheme shape (`http::webview_url`).
+/// `socks5://`, not `socks5h://`: reqwest resolves DNS locally and hands the proxy an IP, and the
+/// webview side only accepts this scheme shape (`http::webview_url`).
 pub(crate) fn socks_url(port: u16) -> String {
     format!("socks5://127.0.0.1:{port}")
 }
@@ -361,8 +341,8 @@ fn spawn_watchdog(app: AppHandle, device: WarpDevice, shutdown: watch::Receiver<
 
             // Drop the old front ends first so nothing accepts while the new one stands up.
             let old = { manager.tunnel.lock().unwrap().take() };
-            if let Some(old) = &old {
-                let _ = old.shutdown.send(true);
+            if let Some(old) = old {
+                old.kill();
             }
             match start_tunnel(&device).await {
                 Ok(tunnel) => {
@@ -385,12 +365,7 @@ fn spawn_watchdog(app: AppHandle, device: WarpDevice, shutdown: watch::Receiver<
 /// keypair, POST it with a plausible Android-client shape, keep back what the tunnel needs.
 /// Anonymous: no account, no email — the device is its own credential.
 async fn register() -> Result<WarpDevice, String> {
-    use base64::Engine;
-    let (private, public) = tokio_wireguard::x25519::keypair();
-    // Standard base64 with padding: it is the `wg` config key format, and the intake rejects
-    // anything else ("Invalid public key", code 1051).
-    let engine = base64::engine::general_purpose::STANDARD;
-    let key = engine.encode(public.as_bytes());
+    let kp = generate_keypair();
     let tos = time_rfc3339();
     let serial = uuid::Uuid::new_v4().to_string();
 
@@ -401,7 +376,7 @@ async fn register() -> Result<WarpDevice, String> {
         .json(&serde_json::json!({
             "install_id": "",
             "fcm_token": "",
-            "key": key,
+            "key": kp.public_key_b64,
             "tos": tos,
             "model": "PC",
             "serial_number": serial,
@@ -448,7 +423,7 @@ async fn register() -> Result<WarpDevice, String> {
     };
 
     Ok(WarpDevice {
-        private_key_b64: engine.encode(private.to_bytes()),
+        private_key_b64: kp.private_key_b64,
         v4_address: v4,
         peer_public_key_b64: peer_public,
         endpoint,
@@ -486,7 +461,7 @@ fn civil_from_unix(secs: u64) -> (i64, u32, u32, u32, u32, u32) {
 /// Bind the first free port in a small range: the bases are picked so collisions need a second
 /// tunnel from something else, but the machine may hold another one of ours from a crashed run.
 async fn bind_first_free(base: u16) -> Option<(TcpListener, u16)> {
-    for i in 0..SOCKS_PORT_ATTEMPTS {
+    for i in 0..PORT_ATTEMPTS {
         let bind: SocketAddr = format!("127.0.0.1:{}", base + i).parse().expect("static bind");
         if let Ok(listener) = TcpListener::bind(bind).await {
             return Some((listener, bind.port()));
@@ -495,211 +470,87 @@ async fn bind_first_free(base: u16) -> Option<(TcpListener, u16)> {
     None
 }
 
-/// Build the WireGuard interface, open both front-end listeners (SOCKS5 for the API clients and
-/// webviews, HTTP CONNECT for mpv) and hand the accept loops a shutdown channel. The loops run
-/// for the tunnel's lifetime; the caller only keeps the handle.
+/// Parse the device into a `.conf`, bring the engine up, and stand both front ends over it. The
+/// engine owns the WireGuard session (handshakes, rekeys, the 10 s keepalive); the front ends
+/// only translate between the app's sockets and it.
 async fn start_tunnel(device: &WarpDevice) -> Result<Tunnel, String> {
-    let config = device.config()?;
-    let interface = config
-        .to_interface()
-        .await
-        .map_err(|e| format!("could not bring the WireGuard interface up: {e}"))?;
+    let config = Config::parse(&device.wg_conf())
+        .map_err(|e| format!("the generated WARP config is invalid: {e}"))?;
 
-    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    // Same startup rule as wgproxyrs itself: resolve the WireGuard endpoint once, here.
+    let peer = config.peers.first().ok_or("generated config has no peer")?;
+    let endpoint: SocketAddr = peer
+        .endpoint
+        .to_socket_addrs()
+        .map_err(|e| format!("cannot resolve the WARP endpoint {}: {e}", peer.endpoint))?
+        .next()
+        .ok_or_else(|| format!("endpoint {} resolved to nothing", peer.endpoint))?;
+    let udp_bind = SocketAddr::new(
+        if endpoint.is_ipv6() {
+            std::net::IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED)
+        } else {
+            std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED)
+        },
+        config.interface.listen_port.unwrap_or(0),
+    );
+    let transport = UdpTransport::new(udp_bind, endpoint)
+        .map_err(|e| format!("cannot bind the tunnel UDP socket: {e}"))?;
+    let peers = vec![PeerTunnel {
+        tunnel: WgTunnel::new(
+            config.interface.private_key,
+            peer.public_key,
+            peer.preshared_key,
+            peer.persistent_keepalive,
+            Box::new(transport),
+        ),
+        allowed_ips: peer.allowed_ips.clone(),
+        endpoint: peer.endpoint.clone(),
+    }];
+
+    let (engine, _engine_task) = spawn_engine(
+        peers,
+        EngineConfig {
+            addresses: config.interface.addresses.clone(),
+            dns_servers: config.interface.dns.clone(),
+            mtu: usize::from(wgproxyrs::config::resolve_mtu(None, config.interface.mtu)),
+        },
+    );
+
     let (socks_listener, socks_port) = bind_first_free(SOCKS_PORT_BASE).await.ok_or_else(|| {
         format!(
             "no free port for the SOCKS5 listener in {SOCKS_PORT_BASE}..{}",
-            SOCKS_PORT_BASE + SOCKS_PORT_ATTEMPTS
+            SOCKS_PORT_BASE + PORT_ATTEMPTS
         )
     })?;
     let (http_listener, http_port) = bind_first_free(HTTP_PORT_BASE).await.ok_or_else(|| {
         format!(
             "no free port for the HTTP listener in {HTTP_PORT_BASE}..{}",
-            HTTP_PORT_BASE + SOCKS_PORT_ATTEMPTS
+            HTTP_PORT_BASE + PORT_ATTEMPTS
         )
     })?;
     tracing::info!(
         "WARP tunnel up: socks5 on 127.0.0.1:{socks_port}, http proxy on 127.0.0.1:{http_port}"
     );
 
-    tokio::spawn(serve(socks_listener, interface.clone(), shutdown_rx.clone(), Front::Socks));
-    tokio::spawn(serve(http_listener, interface, shutdown_rx, Front::Http));
-    Ok(Tunnel { shutdown: shutdown_tx, socks_port, http_port })
-}
+    let ctx = ProxyCtx::new(engine.clone());
+    // The front loops return `io::Result<()>` that only matters when they die; the abort handles
+    // shutdown, and the engine being gone makes them exit on their own.
+    let socks_ctx = ctx.clone();
+    let socks_task: tokio::task::JoinHandle<()> = tokio::spawn(async move {
+        let _ = run_socks5_listener(socks_listener, socks_ctx).await;
+    });
+    let http_task: tokio::task::JoinHandle<()> = tokio::spawn(async move {
+        let _ = run_http_listener(http_listener, ctx).await;
+    });
 
-/// The two front ends differ only in the handshake they speak before the pipe.
-#[derive(Clone, Copy)]
-enum Front {
-    Socks,
-    Http,
-}
-
-/// Accept loop: one task per client, piped into the tunnel. Targets are resolved to IPv4 (the
-/// tunnel is v4-only, and handing a v6 address to a v4 stack fails per-connection where
-/// resolving first fails fast).
-async fn serve(
-    listener: TcpListener,
-    interface: tokio_wireguard::Interface,
-    mut shutdown: watch::Receiver<bool>,
-    front: Front,
-) {
-    let kind = match front {
-        Front::Socks => "SOCKS5",
-        Front::Http => "HTTP",
-    };
-    loop {
-        tokio::select! {
-            result = listener.accept() => {
-                match result {
-                    Ok((socket, peer)) => {
-                        let iface = interface.clone();
-                        tokio::spawn(async move {
-                            let res = match front {
-                                Front::Socks => handle_socks_client(socket, iface).await,
-                                Front::Http => handle_http_client(socket, iface).await,
-                            };
-                            if let Err(e) = res {
-                                tracing::debug!("WARP {kind} client {peer}: {e}");
-                            }
-                        });
-                    }
-                    Err(e) => {
-                        tracing::warn!("WARP {kind} accept error: {e}");
-                    }
-                }
-            }
-            _ = shutdown.changed() => {
-                tracing::info!("WARP tunnel shutting down");
-                return;
-            }
-        }
-    }
-}
-
-/// Resolve a client's target to the tunnel's only route: its first IPv4 answer, or an IPv4
-/// literal unchanged.
-async fn resolve_v4(name: &str, port: u16) -> Result<SocketAddr, String> {
-    if let Ok(ip) = name.parse::<IpAddr>() {
-        if ip.is_ipv4() {
-            return Ok(SocketAddr::new(ip, port));
-        }
-        return Err(format!("{name} is not an IPv4 address"));
-    }
-    tokio::net::lookup_host((name, port))
-        .await
-        .map_err(|e| format!("dns for {name}: {e}"))?
-        .find(|a| a.is_ipv4())
-        .ok_or_else(|| format!("no IPv4 answer for {name}"))
-}
-
-/// One tunnel stream for a resolved target, so both fronts share the wire path.
-async fn tunnel_stream(
-    addr: SocketAddr,
-    interface: tokio_wireguard::Interface,
-) -> Result<tokio_wireguard::TcpStream, String> {
-    tokio_wireguard::TcpStream::connect(addr, interface)
-        .await
-        .map_err(|e| format!("tunnel connect to {addr}: {e}"))
-}
-
-/// Pipe two halves against each other until either side closes.
-async fn pipe(
-    client: tokio::net::TcpStream,
-    stream: tokio_wireguard::TcpStream,
-) -> Result<(), String> {
-    let (mut client_rx, mut client_tx) = tokio::io::split(client);
-    let (mut tun_rx, mut tun_tx) = tokio::io::split(stream);
-    tokio::select! {
-        r = tokio::io::copy(&mut client_rx, &mut tun_tx) => { r.map_err(|e| e.to_string())?; }
-        r = tokio::io::copy(&mut tun_rx, &mut client_tx) => { r.map_err(|e| e.to_string())?; }
-    }
-    Ok(())
-}
-
-async fn handle_socks_client(
-    socket: tokio::net::TcpStream,
-    interface: tokio_wireguard::Interface,
-) -> Result<(), String> {
-    let (proto, cmd, target) = Socks5ServerProtocol::accept_no_auth(socket)
-        .await
-        .map_err(|e| e.to_string())?
-        .read_command()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if cmd != Socks5Command::TCPConnect {
-        let _ = proto.reply_error(&ReplyError::CommandNotSupported).await;
-        return Err(format!("unsupported SOCKS command: {cmd:?}"));
-    }
-
-    let (host, port) = match &target {
-        TargetAddr::Ip(ip) => (ip.ip().to_string(), ip.port()),
-        TargetAddr::Domain(name, port) => (name.clone(), *port),
-    };
-    let addr = match resolve_v4(&host, port).await {
-        Ok(a) => a,
-        Err(e) => {
-            let _ = proto.reply_error(&ReplyError::HostUnreachable).await;
-            return Err(e);
-        }
-    };
-
-    let stream = match tunnel_stream(addr, interface).await {
-        Ok(s) => s,
-        Err(e) => {
-            let _ = proto.reply_error(&ReplyError::HostUnreachable).await;
-            return Err(e);
-        }
-    };
-
-    // `reply_success` hands the underlying socket back with the reply sent, ready for piping.
-    let client = proto
-        .reply_success(SocketAddr::from(([0, 0, 0, 0], 0)))
-        .await
-        .map_err(|e| e.to_string())?;
-    pipe(client, stream).await
-}
-
-/// The mpv front: an HTTP CONNECT proxy (libavformat speaks no SOCKS — see [`http_url`]).
-async fn handle_http_client(
-    mut socket: tokio::net::TcpStream,
-    interface: tokio_wireguard::Interface,
-) -> Result<(), String> {
-    let mut buf = Vec::new();
-    // The CONNECT request is small and ends at the first empty line; anything the client sends
-    // past it belongs to the tunnelled stream and is simply never read here (the client waits
-    // for the 200 first).
-    loop {
-        let mut chunk = [0u8; 512];
-        let n = socket.read(&mut chunk).await.map_err(|e| format!("read CONNECT request: {e}"))?;
-        if n == 0 {
-            return Err("client closed before sending CONNECT".into());
-        }
-        buf.extend_from_slice(&chunk[..n]);
-        if buf.windows(4).any(|w| w == b"\r\n\r\n") || buf.len() > 4096 {
-            break;
-        }
-    }
-    let request = String::from_utf8_lossy(&buf);
-    let first = request.lines().next().unwrap_or_default();
-    let mut parts = first.split_whitespace();
-    let (method, target) = (parts.next(), parts.next());
-    if method != Some("CONNECT") {
-        return Err(format!("unsupported request: {first}"));
-    }
-    let target = target.ok_or_else(|| format!("CONNECT without a target: {first}"))?;
-    let (host, port) =
-        target.rsplit_once(':').ok_or_else(|| format!("CONNECT target has no port: {target}"))?;
-    let port: u16 = port.parse().map_err(|_| format!("CONNECT target has a bad port: {target}"))?;
-
-    let addr = resolve_v4(host, port).await?;
-    let stream = tunnel_stream(addr, interface).await?;
-
-    socket
-        .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
-        .await
-        .map_err(|e| format!("write CONNECT reply: {e}"))?;
-    pipe(socket, stream).await
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    Ok(Tunnel {
+        engine,
+        front_tasks: vec![socks_task, http_task],
+        shutdown: shutdown_tx,
+        socks_port,
+        http_port,
+    })
 }
 
 #[cfg(test)]
@@ -719,6 +570,25 @@ mod tests {
         let back = WarpDevice::from_json(&json).expect("round trip");
         assert_eq!(back.endpoint, d.endpoint);
         assert_eq!(back.v4_address, d.v4_address);
+    }
+
+    #[test]
+    fn generated_conf_is_parseable_and_carries_the_essentials() {
+        let d = WarpDevice {
+            // base64 of 32 zero bytes: the residual bits before the padding are zero, which is
+            // what strict WireGuard key decoders (boringtun's, here) demand.
+            private_key_b64: format!("{}=", "A".repeat(43)),
+            v4_address: "172.16.0.2".into(),
+            peer_public_key_b64: format!("{}=", "A".repeat(43)),
+            endpoint: "engage.cloudflareclient.com:2408".into(),
+        };
+        let config = Config::parse(&d.wg_conf()).expect("the generated conf must parse");
+        assert_eq!(config.interface.addresses.len(), 1);
+        assert_eq!(config.peers.len(), 1);
+        assert_eq!(config.peers[0].endpoint, d.endpoint);
+        assert_eq!(config.peers[0].persistent_keepalive, Some(KEEPALIVE_SECS));
+        // The engine resolves domain targets through the tunnel, so DNS must be pinned.
+        assert!(config.interface.dns.contains(&"1.1.1.1".parse().unwrap()));
     }
 
     #[test]
