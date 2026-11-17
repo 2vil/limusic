@@ -279,7 +279,7 @@ pub async fn get_queue(state: St<'_>) -> Result<serde_json::Value, String> {
 /// `visitor_data`) and internal blobs (`queue_json`, `queue_index`, `queue_position`) never cross
 /// into the webview: they'd otherwise ship the login credential to the renderer on every open, and
 /// the webview can't overwrite them either.
-const UI_SETTINGS: [&str; 34] = [
+const UI_SETTINGS: [&str; 35] = [
     "volume",
     "proxy",
     "quality",
@@ -289,6 +289,7 @@ const UI_SETTINGS: [&str; 34] = [
     "discord_rpc",
     "discord_rpc_config",
     "warp_enabled",
+    "warp_conf_name",
     "close_to_tray",
     "track_notifications",
     "track_notifications_focused",
@@ -3055,11 +3056,38 @@ pub fn save_diagnostics(app: tauri::AppHandle, state: St<'_>, path: String) -> R
     std::fs::write(&path, crate::diagnostics::report(&app, &state.db)).map_err(|e| e.to_string())
 }
 
-/// The embedded WARP tunnel's state (`crate::warp`), for the Settings toggle's first paint. After
-/// that the `warp-status` event carries every change live.
+/// The embedded WireGuard tunnel's state (`crate::warp`), for the Settings toggle's first paint.
+/// After that the `warp-status` event carries every change live.
 #[tauri::command]
 pub fn warp_status(state: St<'_>) -> crate::warp::WarpStatus {
     state.warp.status()
+}
+
+/// Import a WireGuard `.conf` through the file picker, which lives in Rust on purpose: the file
+/// carries the private key, so it never crosses into the webview. Validated before it is stored,
+/// and the tunnel is rebuilt over it right away when it is already up. Returns the file's name,
+/// for the Settings row to display.
+#[tauri::command]
+pub async fn warp_import_config(app: tauri::AppHandle, state: St<'_>) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    // The dialog callback bridges into async-land through a oneshot.
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog().file().add_filter("WireGuard config", &["conf"]).pick_file(move |path| {
+        let _ = tx.send(path);
+    });
+    let picked =
+        rx.await.map_err(|_| "the file dialog was closed".to_string())?.ok_or("cancelled")?;
+    let path = picked.into_path().map_err(|e| e.to_string())?;
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("cannot read the file: {e}"))?;
+    // Validate before storing, so a typo'd file never replaces a working one.
+    wgproxyrs::config::Config::parse(&text)
+        .map_err(|e| format!("not a valid WireGuard config: {e}"))?;
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("tunnel.conf").to_owned();
+    state.db.set_setting("warp_conf", &text);
+    state.db.set_setting("warp_conf_name", &name);
+    state.warp.restart(&state.db).await?;
+    Ok(name)
 }
 
 /// The webview's own errors, into the same log file as everything else. Without this a blank

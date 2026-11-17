@@ -4,7 +4,11 @@ import { listen } from '@tauri-apps/api/event';
 import * as api from './api';
 import { toast } from './player.svelte';
 
-export const warp = $state({ status: { status: 'off' } as api.WarpStatus });
+export const warp = $state({
+	status: { status: 'off' } as api.WarpStatus,
+	/** The imported `.conf`'s file name, for display only — the config itself stays in Rust. */
+	confName: null as string | null
+});
 
 let inited = false;
 export function initWarp() {
@@ -27,7 +31,7 @@ export function warpOn(): boolean {
 
 /** Optimistic toggle; the `warp-status` events keep the truth flowing in from the backend. */
 export async function setWarpEnabled(on: boolean) {
-	warp.status = on ? { status: 'registering' } : { status: 'off' };
+	warp.status = on ? { status: 'connecting' } : { status: 'off' };
 	try {
 		await api.setSetting('warp_enabled', String(on));
 	} catch (e) {
@@ -36,5 +40,18 @@ export async function setWarpEnabled(on: boolean) {
 		const fallback: api.WarpStatus = { status: 'failed', msg: String(e) };
 		warp.status = await api.warpStatus().catch(() => fallback);
 		toast.error(String(e));
+	}
+}
+
+/** Pick a `.conf`, validate and store it (Rust side), and live-swap the tunnel if it is up. */
+export async function importWarpConfig(): Promise<string | null> {
+	try {
+		const name = await api.warpImportConfig();
+		warp.confName = name;
+		return name;
+	} catch (e) {
+		if (String(e).includes('cancelled')) return null;
+		toast.error(String(e));
+		return null;
 	}
 }

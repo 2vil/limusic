@@ -40,7 +40,7 @@
 	import * as api from '$lib/api';
 	import { blocked, karaokeAvailability, karaokeConsent, karaokeModels, karaokeSelection, cancelKaraokeModelDownload, deleteKaraokeModel, playback, prefs, refreshLanguage, setAutoplay, ui, toast, unblockArtist, setKaraokeDevice, applyKaraokeStatus, chooseKaraokeModel, refreshKaraokeModels } from '$lib/player.svelte';
 	import { deleteAllDownloads } from '$lib/download.svelte';
-	import { initWarp, setWarpEnabled, warp, warpOn } from '$lib/warp.svelte';
+	import { importWarpConfig, initWarp, setWarpEnabled, warp, warpOn } from '$lib/warp.svelte';
 	import { win } from '$lib/win.svelte';
 	import { lt } from '$lib/lt.svelte';
 	import AppearanceSettings from '$lib/components/AppearanceSettings.svelte';
@@ -394,6 +394,7 @@
 			clients = c;
 			downloadDir = d;
 			downloadConcurrency = concurrency;
+			warp.confName = settings.warp_conf_name || null;
 			proxyInput = s.proxy ?? '';
 		} catch (e) {
 			toast.error(String(e));
@@ -1058,6 +1059,11 @@
 									extra: warpBadge,
 									control: warpSwitch
 								})}
+								{@render row({
+									title: t('settings.general.warp_config'),
+									desc: warp.confName ?? t('settings.general.warp_config_none'),
+									control: warpImportButton
+								})}
 							</div>
 						</section>
 						<section class={GROUP}>
@@ -1256,6 +1262,18 @@
 
 {#snippet warpSwitch()}<Switch checked={warpOn()} onCheckedChange={(v) => void setWarpEnabled(v)} />{/snippet}
 {#snippet warpBadge()}<ExperimentalBadge tooltip={t('settings.general.warp_tooltip')} />{/snippet}
+{#snippet warpImportButton()}
+	<Button
+		variant="outline"
+		size="sm"
+		onclick={async () => {
+			const name = await importWarpConfig();
+			if (name) toast.success(t('settings.general.warp_imported', { name }));
+		}}
+	>
+		{t('settings.general.warp_import')}
+	</Button>
+{/snippet}
 {#snippet historySwitch()}<Switch checked={historyOn} onCheckedChange={setHistory} />{/snippet}
 {#snippet traySwitch()}<Switch checked={trayOn} onCheckedChange={setTray} />{/snippet}
 {#snippet trackNotificationsSwitch()}<Switch

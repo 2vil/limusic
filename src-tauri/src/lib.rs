@@ -1595,6 +1595,7 @@ pub fn run() {
             commands::get_downloaded_ids,
             commands::get_downloaded_tracks,
             commands::warp_status,
+            commands::warp_import_config,
             commands::log_ui,
         ]))
         .on_window_event(|window, event| {

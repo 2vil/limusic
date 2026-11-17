@@ -571,6 +571,9 @@ export type WarpStatus =
 	| { status: 'connected' }
 	| { status: 'failed'; msg: string };
 export const warpStatus = () => invoke<WarpStatus>('warp_status');
+/** Opens the file picker in Rust (the config holds a private key and never crosses IPC); returns
+ * the file's name for display. */
+export const warpImportConfig = () => invoke<string>('warp_import_config');
 /** Streamable client keys for the "disabled clients" setting. */
 export const getStreamClients = () => invoke<string[]>('get_stream_clients');
 /** Wipe both cache tiers (URL cache + mpv on-disk audio cache). */

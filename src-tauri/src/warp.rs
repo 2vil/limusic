@@ -1,33 +1,35 @@
-//! The embedded Cloudflare WARP tunnel (the Settings "experimental" toggle).
+//! The embedded WireGuard tunnel (Settings ▸ Network, the "experimental" toggle).
 //!
-//! YT Music is not served in every country; users there need their traffic to come from an IP in a
-//! served one. The app already routes everything through the `proxy` setting (#241), so what is
-//! missing is a provider: this module embeds a Cloudflare WARP WireGuard client, exposes it as a
-//! local no-auth SOCKS5 server, and points the app's proxy plumbing at it. No root, no TUN
-//! device, no external binary — one toggle, on desktop and Android alike.
+//! YT Music is not served in every country; users there need their traffic to come from an IP in
+//! a served one. The app already routes everything through the `proxy` setting (#241), so what is
+//! missing is a provider: the user imports any WireGuard `.conf` (Mullvad, Proton, a `wgcf`-made
+//! WARP profile — their pick), the app embeds a userspace WireGuard engine over it and points the
+//! proxy plumbing at that. Nothing is system-wide: no TUN device, no routes, no root — the two
+//! front ends listen on 127.0.0.1 and only this app's traffic is pointed at them. Desktop and
+//! Android alike.
 //!
 //! Three pieces, in dependency order:
-//! 1. **Registration** ([`register`]): one anonymous device against Cloudflare's client API, the
-//!    way `wgcf` does it. The device blob (private key included) is stored in the database like
-//!    other session material — it never crosses into the webview, so it must not join
-//!    `UI_SETTINGS`.
-//! 2. **The engine** ([`start_tunnel`]): the device is turned into a stock WireGuard `.conf`
-//!    (the format `wgcf` writes) and handed to `wgproxyrs` — a userspace WireGuard engine
-//!    (boringtun + smoltcp) that keeps the session alive and resolves domain targets through the
-//!    tunnel's own DNS. Chosen after the first engine this module carried (`tokio-wireguard`)
-//!    dropped its session mid-flight on CGNAT-flaky networks no matter how it was wired; the
-//!    same probe battery that killed it runs clean on `wgproxyrs` for as long as it was run.
+//! 1. **The imported config** ([`imported_conf`]): the `.conf` text lives in the database (it
+//!    holds the private key, so it must never cross into the webview and must not join
+//!    `UI_SETTINGS`). A `DNS` line and a `PersistentKeepalive` are injected when missing — the
+//!    engine resolves domain targets through the tunnel, and a missing keepalive lets NAT boxes
+//!    on flaky networks drop the session silently.
+//! 2. **The engine** ([`start_tunnel`]): `wgproxyrs` — a userspace WireGuard engine (boringtun +
+//!    smoltcp) that keeps the session alive, re-handshakes on its own and resolves domain targets
+//!    through the tunnel's own DNS. Chosen after the first engine this module carried
+//!    (`tokio-wireguard`) dropped its session mid-flight on CGNAT-flaky networks no matter how it
+//!    was wired; the same probe battery that killed it runs clean on `wgproxyrs` for as long as
+//!    it was run.
 //! 3. **The fronts**: `wgproxyrs` serves SOCKS5 (`run_socks5_listener`) and HTTP CONNECT
 //!    (`run_http_listener`) over one engine — mpv needs the latter, because libavformat only
 //!    speaks `http://` proxies (see `player::set_http_proxy`).
 //!
-//! DNS resolves through the tunnel (the generated `.conf` pins `DNS = 1.1.1.1`, and the engine
-//! carries a smoltcp DNS socket), so domain targets are answered inside the tunnel rather than
-//! leaked to the local resolver.
+//! A watchdog ([`spawn_watchdog`]) probes the front every so often and rebuilds the interface on
+//! two consecutive misses, re-pointing every consumer (the ports can change).
 //!
-//! State machine: `Off → Registering → Connecting → Connected`, any step failing → `Failed(msg)`
-//! with the proxy untouched. Toggling off tears the engine down and restores the user's manual
-//! `proxy` setting.
+//! State machine: `Off → Connecting → Connected`, any step failing → `Failed(msg)` with the
+//! proxy untouched. Toggling off tears the engine down and restores the user's manual `proxy`
+//! setting.
 
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::{Arc, Mutex, RwLock};
@@ -38,7 +40,6 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 use wgproxyrs::config::Config;
-use wgproxyrs::keys::generate_keypair;
 use wgproxyrs::proxy::{run_http_listener, run_socks5_listener, ProxyCtx};
 use wgproxyrs::stack::{spawn_engine, EngineConfig, EngineHandle, PeerTunnel};
 use wgproxyrs::tunnel::{UdpTransport, WgTunnel};
@@ -51,16 +52,11 @@ const SOCKS_PORT_BASE: u16 = 51879;
 const HTTP_PORT_BASE: u16 = 51890;
 /// How many ports past each base [`start_tunnel`] will try before failing.
 const PORT_ATTEMPTS: u16 = 5;
-/// WARP peers forward everything, so the tunnel's routing table is "the world".
-const ALL_V4: &str = "0.0.0.0/0";
 /// Aggressive on purpose: the first engine lost its session on networks whose NAT forgets UDP
 /// flows faster than the `wg`-default 25 s, and 10 s costs nothing.
 const KEEPALIVE_SECS: u16 = 10;
-
-/// Cloudflare's client registration API, the same versioned surface `wgcf` targets. A plain
-/// Android app user agent is what their intake expects.
-const REG_URL: &str = "https://api.cloudflareclient.com/v0a2158/reg";
-const REG_UA: &str = "okhttp/3.12.1";
+/// The DNS the engine resolves domain targets with, injected into configs that ship none.
+const FALLBACK_DNS: &str = "1.1.1.1";
 
 /// What the UI is told, through the `warp-status` event and the `warp_status` command. Serialized
 /// with the tag on the outside so JS sees `{ status: "connected" }` / `{ status: "failed", msg }`.
@@ -68,65 +64,32 @@ const REG_UA: &str = "okhttp/3.12.1";
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum WarpStatus {
     Off,
-    Registering,
     Connecting,
     Connected,
     Failed { msg: String },
 }
 
-/// The one thing the database must keep for a device: enough to rebuild the tunnel without
-/// talking to the registration API again. Flattened from the API's nested response at
-/// registration time, so schema drift on their side can only fail once, here, with a clear error.
-#[derive(Clone)]
-struct WarpDevice {
-    private_key_b64: String,
-    v4_address: String,
-    peer_public_key_b64: String,
-    endpoint: String,
+/// The imported `.conf`, as the engine needs it: a `DNS` line and a `PersistentKeepalive` are
+/// injected when the file ships none. The engine resolves domain targets through the tunnel (its
+/// own smoltcp DNS socket, fed by `DNS`), so a config without one would make every domain connect
+/// fail; and without a keepalive, NAT boxes on flaky networks drop the session silently.
+fn normalize_conf(conf: &str) -> String {
+    let mut out = conf.trim().to_owned();
+    if !out.contains("DNS") {
+        if !out.ends_with('\n') {
+            out.push('\n');
+        }
+        out.push_str(&format!("DNS = {FALLBACK_DNS}\n"));
+    }
+    if !out.contains("PersistentKeepalive") {
+        out.push_str(&format!("PersistentKeepalive = {KEEPALIVE_SECS}\n"));
+    }
+    out
 }
 
-impl WarpDevice {
-    fn to_json(&self) -> String {
-        serde_json::json!({
-            "private_key": self.private_key_b64,
-            "v4": self.v4_address,
-            "peer_public_key": self.peer_public_key_b64,
-            "endpoint": self.endpoint,
-        })
-        .to_string()
-    }
-
-    fn from_json(json: &str) -> Option<Self> {
-        let v: serde_json::Value = serde_json::from_str(json).ok()?;
-        Some(Self {
-            private_key_b64: v.get("private_key")?.as_str()?.to_owned(),
-            v4_address: v.get("v4")?.as_str()?.to_owned(),
-            peer_public_key_b64: v.get("peer_public_key")?.as_str()?.to_owned(),
-            endpoint: v.get("endpoint")?.as_str()?.to_owned(),
-        })
-    }
-
-    /// The device as a stock WireGuard `.conf`, the one shape [`Config::parse`] takes. `DNS` is
-    /// pinned to 1.1.1.1 because the engine resolves domain targets through the tunnel (no leak
-    /// to the local resolver) and the registration reply carries no DNS line of its own. The v4
-    /// address arrives bare (`172.16.0.2`) and needs the `/32` that `.conf` files carry.
-    fn wg_conf(&self) -> String {
-        let v4 = if self.v4_address.contains('/') {
-            self.v4_address.clone()
-        } else {
-            format!("{}/32", self.v4_address)
-        };
-        format!(
-            "[Interface]\nPrivateKey = {key}\nAddress = {v4}\nDNS = 1.1.1.1\n\n[Peer]\n\
-             PublicKey = {peer}\nAllowedIPs = {all}\nEndpoint = {endpoint}\n\
-             PersistentKeepalive = {keep}\n",
-            key = self.private_key_b64,
-            peer = self.peer_public_key_b64,
-            all = ALL_V4,
-            endpoint = self.endpoint,
-            keep = KEEPALIVE_SECS,
-        )
-    }
+/// The stored `.conf`, or `None` until one is imported.
+fn imported_conf(db: &Db) -> Option<String> {
+    db.get_setting("warp_conf").filter(|c| !c.trim().is_empty()).map(|c| normalize_conf(&c))
 }
 
 pub struct WarpManager {
@@ -191,39 +154,34 @@ impl WarpManager {
         }
     }
 
-    fn is_up(&self) -> bool {
+    /// Whether a tunnel is currently standing. The import command uses it to offer a live swap.
+    pub(crate) fn is_up(&self) -> bool {
         self.tunnel.lock().unwrap().is_some()
     }
 
-    /// Register (first enable only), stand the tunnel up and point the whole app at it. Returns
-    /// the `(SOCKS5 port, HTTP proxy port)` the tunnel ended up on. Fails without touching the
-    /// proxy, so a broken tunnel never takes playback down with it.
+    /// Stand the tunnel up over the imported `.conf` and point the whole app at it. Returns the
+    /// `(SOCKS5 port, HTTP proxy port)` the tunnel ended up on. Fails without touching the proxy,
+    /// so a broken tunnel never takes playback down with it.
     pub async fn start(&self, db: &Db) -> Result<(u16, u16), String> {
-        self.set_status(WarpStatus::Registering);
-        let device =
-            match db.get_setting("warp_device_json").as_deref().and_then(WarpDevice::from_json) {
-                Some(d) => d,
-                None => {
-                    let d = register().await.map_err(|e| {
-                        let msg = format!("WARP registration failed: {e}");
-                        self.set_status(WarpStatus::Failed { msg: msg.clone() });
-                        msg
-                    })?;
-                    db.set_setting("warp_device_json", &d.to_json());
-                    d
-                }
-            };
-
         self.set_status(WarpStatus::Connecting);
-        let tunnel = start_tunnel(&device).await.map_err(|e| {
-            let msg = format!("WARP tunnel failed: {e}");
+        let conf = match imported_conf(db) {
+            Some(c) => c,
+            None => {
+                let msg = "no WireGuard config imported yet".to_owned();
+                self.set_status(WarpStatus::Failed { msg: msg.clone() });
+                return Err(msg);
+            }
+        };
+
+        let tunnel = start_tunnel(&conf).await.map_err(|e| {
+            let msg = format!("WireGuard tunnel failed: {e}");
             self.set_status(WarpStatus::Failed { msg: msg.clone() });
             msg
         })?;
 
         let (socks_port, http_port) = (tunnel.socks_port, tunnel.http_port);
         apply_tunnel_proxy(self.app.clone(), socks_port, http_port);
-        spawn_watchdog(self.app.clone(), device, tunnel.shutdown_rx());
+        spawn_watchdog(self.app.clone(), conf, tunnel.shutdown_rx());
         *self.tunnel.lock().unwrap() = Some(tunnel);
         self.set_status(WarpStatus::Connected);
         Ok((socks_port, http_port))
@@ -236,6 +194,17 @@ impl WarpManager {
             apply_manual_proxy(self.app.clone(), db.get_setting("proxy").as_deref());
         }
         self.set_status(WarpStatus::Off);
+    }
+
+    /// Swap the tunnel over to whatever `.conf` is now in the database, without leaving the user
+    /// on the old one. A no-op while the tunnel is off (the next start picks it up).
+    pub(crate) async fn restart(&self, db: &Db) -> Result<(), String> {
+        if self.is_up() {
+            self.stop(db).await;
+            self.start(db).await.map(|_| ())
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -295,9 +264,10 @@ const WATCHDOG_STRIKES: u32 = 2;
 /// The WireGuard session is not bulletproof: handshakes on flaky networks (CGNAT, mobile data)
 /// sometimes die mid-session and do not always come back on their own. This loop probes the front
 /// every [`WATCHDOG_INTERVAL`] and, after [`WATCHDOG_STRIKES`] consecutive misses, tears the
-/// interface down and rebuilds it from the same device — the ports may change, so every consumer
-/// is re-pointed (`apply_tunnel_proxy`). The user never sees more than a brief `connecting` blip.
-fn spawn_watchdog(app: AppHandle, device: WarpDevice, shutdown: watch::Receiver<bool>) {
+/// interface down and rebuilds it from the same imported config — the ports may change, so every
+/// consumer is re-pointed (`apply_tunnel_proxy`). The user never sees more than a brief
+/// `connecting` blip.
+fn spawn_watchdog(app: AppHandle, conf: String, shutdown: watch::Receiver<bool>) {
     tokio::spawn(async move {
         let mut shutdown = shutdown;
         let mut fails = 0u32;
@@ -337,125 +307,28 @@ fn spawn_watchdog(app: AppHandle, device: WarpDevice, shutdown: watch::Receiver<
                 return;
             }
             manager.set_status(WarpStatus::Connecting);
-            tracing::warn!("re-establishing the WARP interface");
+            tracing::warn!("re-establishing the WireGuard interface");
 
             // Drop the old front ends first so nothing accepts while the new one stands up.
             let old = { manager.tunnel.lock().unwrap().take() };
             if let Some(old) = old {
                 old.kill();
             }
-            match start_tunnel(&device).await {
+            match start_tunnel(&conf).await {
                 Ok(tunnel) => {
                     apply_tunnel_proxy(app.clone(), tunnel.socks_port, tunnel.http_port);
-                    spawn_watchdog(app.clone(), device.clone(), tunnel.shutdown_rx());
+                    spawn_watchdog(app.clone(), conf.clone(), tunnel.shutdown_rx());
                     *manager.tunnel.lock().unwrap() = Some(tunnel);
                     manager.set_status(WarpStatus::Connected);
                 }
                 Err(e) => {
-                    tracing::error!("WARP interface rebuild failed: {e}");
+                    tracing::error!("WireGuard interface rebuild failed: {e}");
                     manager.set_status(WarpStatus::Failed { msg: e });
                     return;
                 }
             }
         }
     });
-}
-
-/// Ask Cloudflare for a fresh anonymous WARP device (the `wgcf` flow): generate a WireGuard
-/// keypair, POST it with a plausible Android-client shape, keep back what the tunnel needs.
-/// Anonymous: no account, no email — the device is its own credential.
-async fn register() -> Result<WarpDevice, String> {
-    let kp = generate_keypair();
-    let tos = time_rfc3339();
-    let serial = uuid::Uuid::new_v4().to_string();
-
-    let resp = crate::http::client()
-        .post(REG_URL)
-        .header("User-Agent", REG_UA)
-        .header("Content-Type", "application/json")
-        .json(&serde_json::json!({
-            "install_id": "",
-            "fcm_token": "",
-            "key": kp.public_key_b64,
-            "tos": tos,
-            "model": "PC",
-            "serial_number": serial,
-        }))
-        .timeout(Duration::from_secs(30))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let status = resp.status();
-    let body: serde_json::Value =
-        resp.json().await.map_err(|e| format!("unreadable registration reply ({status}): {e}"))?;
-    if !status.is_success() {
-        let msg =
-            body.get("errors").map(|e| e.to_string()).unwrap_or_else(|| "unknown error".into());
-        return Err(format!("the API answered {status}: {msg}"));
-    }
-
-    // Pointer paths, so an extra field or reordering on their side does not break the read.
-    let cfg = body.get("config").ok_or("registration reply has no config")?;
-    let v4 = cfg
-        .pointer("/interface/addresses/v4")
-        .and_then(|v| v.as_str())
-        .ok_or("registration reply has no v4 address")?
-        .to_owned();
-    let peer = cfg.pointer("/peers/0").ok_or("registration reply has no peer")?;
-    let peer_public = peer
-        .get("public_key")
-        .and_then(|v| v.as_str())
-        .ok_or("registration reply has no peer public key")?
-        .to_owned();
-    // `endpoint.host` arrives as `engage.cloudflareclient.com:2408` with `endpoint.port` null and
-    // alternates in `endpoint.ports` — so take the port out of the host, falling back to the
-    // first listed one when the host ships bare.
-    let host = peer
-        .pointer("/endpoint/host")
-        .and_then(|v| v.as_str())
-        .ok_or("registration reply has no endpoint host")?;
-    let endpoint = if host.contains(':') {
-        host.to_owned()
-    } else {
-        let port = peer.pointer("/endpoint/ports/0").and_then(|v| v.as_u64()).unwrap_or(2408);
-        format!("{host}:{port}")
-    };
-
-    Ok(WarpDevice {
-        private_key_b64: kp.private_key_b64,
-        v4_address: v4,
-        peer_public_key_b64: peer_public,
-        endpoint,
-    })
-}
-
-/// `now` in the RFC3339 shape the registration body's `tos` field wants.
-fn time_rfc3339() -> String {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let (y, mo, d, h, mi, s) = civil_from_unix(secs);
-    format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}.000Z")
-}
-
-/// Days-since-epoch → calendar date (Howard Hinnant's civil_from_days), so no date crate joins
-/// the tree for one timestamp.
-fn civil_from_unix(secs: u64) -> (i64, u32, u32, u32, u32, u32) {
-    let days = (secs / 86400) as i64;
-    let rem = secs % 86400;
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    let y = if m <= 2 { y + 1 } else { y };
-    (y, m, d, (rem / 3600) as u32, ((rem % 3600) / 60) as u32, (rem % 60) as u32)
 }
 
 /// Bind the first free port in a small range: the bases are picked so collisions need a second
@@ -470,19 +343,19 @@ async fn bind_first_free(base: u16) -> Option<(TcpListener, u16)> {
     None
 }
 
-/// Parse the device into a `.conf`, bring the engine up, and stand both front ends over it. The
-/// engine owns the WireGuard session (handshakes, rekeys, the 10 s keepalive); the front ends
-/// only translate between the app's sockets and it.
-async fn start_tunnel(device: &WarpDevice) -> Result<Tunnel, String> {
-    let config = Config::parse(&device.wg_conf())
-        .map_err(|e| format!("the generated WARP config is invalid: {e}"))?;
+/// Parse the imported `.conf`, bring the engine up, and stand both front ends over it. The
+/// engine owns the WireGuard session (handshakes, rekeys, the keepalive); the front ends only
+/// translate between the app's sockets and it.
+async fn start_tunnel(conf: &str) -> Result<Tunnel, String> {
+    let config =
+        Config::parse(conf).map_err(|e| format!("the WireGuard config is invalid: {e}"))?;
 
     // Same startup rule as wgproxyrs itself: resolve the WireGuard endpoint once, here.
-    let peer = config.peers.first().ok_or("generated config has no peer")?;
+    let peer = config.peers.first().ok_or("the config has no [Peer] section")?;
     let endpoint: SocketAddr = peer
         .endpoint
         .to_socket_addrs()
-        .map_err(|e| format!("cannot resolve the WARP endpoint {}: {e}", peer.endpoint))?
+        .map_err(|e| format!("cannot resolve the tunnel endpoint {}: {e}", peer.endpoint))?
         .next()
         .ok_or_else(|| format!("endpoint {} resolved to nothing", peer.endpoint))?;
     let udp_bind = SocketAddr::new(
@@ -543,7 +416,7 @@ async fn start_tunnel(device: &WarpDevice) -> Result<Tunnel, String> {
         let _ = run_http_listener(http_listener, ctx).await;
     });
 
-    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let (shutdown_tx, _) = watch::channel(false);
     Ok(Tunnel {
         engine,
         front_tasks: vec![socks_task, http_task],
@@ -557,57 +430,40 @@ async fn start_tunnel(device: &WarpDevice) -> Result<Tunnel, String> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn device_blob_round_trips() {
-        let d = WarpDevice {
-            // 44 characters: standard base64 of 32 bytes (the API's own key shape).
-            private_key_b64: format!("{}=", "a".repeat(43)),
-            v4_address: "172.16.0.2".into(),
-            peer_public_key_b64: format!("{}=", "b".repeat(43)),
-            endpoint: "engage.cloudflareclient.com:2408".into(),
-        };
-        let json = d.to_json();
-        let back = WarpDevice::from_json(&json).expect("round trip");
-        assert_eq!(back.endpoint, d.endpoint);
-        assert_eq!(back.v4_address, d.v4_address);
+    /// A minimal but fully valid client config, the shape users import.
+    fn sample_conf() -> String {
+        // base64 of 32 zero bytes: the residual bits before the padding are zero, which is what
+        // strict WireGuard key decoders (boringtun's, here) demand.
+        format!(
+            "[Interface]\nPrivateKey = {}\nAddress = 172.16.0.2/32\n\n[Peer]\n\
+             PublicKey = {}\nAllowedIPs = 0.0.0.0/0\n\
+             Endpoint = engage.cloudflareclient.com:2408\n",
+            format!("{}=", "A".repeat(43)),
+            format!("{}=", "A".repeat(43)),
+        )
     }
 
     #[test]
-    fn generated_conf_is_parseable_and_carries_the_essentials() {
-        let d = WarpDevice {
-            // base64 of 32 zero bytes: the residual bits before the padding are zero, which is
-            // what strict WireGuard key decoders (boringtun's, here) demand.
-            private_key_b64: format!("{}=", "A".repeat(43)),
-            v4_address: "172.16.0.2".into(),
-            peer_public_key_b64: format!("{}=", "A".repeat(43)),
-            endpoint: "engage.cloudflareclient.com:2408".into(),
-        };
-        let config = Config::parse(&d.wg_conf()).expect("the generated conf must parse");
-        assert_eq!(config.interface.addresses.len(), 1);
-        assert_eq!(config.peers.len(), 1);
-        assert_eq!(config.peers[0].endpoint, d.endpoint);
-        assert_eq!(config.peers[0].persistent_keepalive, Some(KEEPALIVE_SECS));
+    fn normalize_injects_dns_and_keepalive() {
+        let conf = normalize_conf(&sample_conf());
+        let config = Config::parse(&conf).expect("the normalized conf must parse");
         // The engine resolves domain targets through the tunnel, so DNS must be pinned.
         assert!(config.interface.dns.contains(&"1.1.1.1".parse().unwrap()));
+        assert_eq!(config.peers[0].persistent_keepalive, Some(KEEPALIVE_SECS));
+        assert_eq!(config.interface.addresses.len(), 1);
+        assert_eq!(config.peers.len(), 1);
+    }
+
+    #[test]
+    fn normalize_leaves_complete_configs_alone() {
+        let conf = format!("{}\nDNS = 9.9.9.9\nPersistentKeepalive = 15\n", sample_conf());
+        let config = Config::parse(&normalize_conf(&conf)).expect("parses");
+        assert!(config.interface.dns.contains(&"9.9.9.9".parse().unwrap()));
+        assert_eq!(config.peers[0].persistent_keepalive, Some(15));
     }
 
     #[test]
     fn socks_url_is_webview_shaped() {
         assert!(crate::http::webview_url(&socks_url(51879)).is_some());
-    }
-
-    #[test]
-    fn civil_date_is_correct() {
-        // 2026-01-01T00:00:00Z is 1767225600; noon the same day shares the date part.
-        assert_eq!(civil_from_unix(1_767_225_600), (2026, 1, 1, 0, 0, 0));
-        assert_eq!(civil_from_unix(1_767_225_600 + 12 * 3600), (2026, 1, 1, 12, 0, 0));
-    }
-
-    #[test]
-    fn rfc3339_shape() {
-        let t = time_rfc3339();
-        assert_eq!(t.len(), 24);
-        assert!(t.ends_with('Z'));
-        assert_eq!(&t[4..5], "-");
     }
 }
