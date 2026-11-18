@@ -836,7 +836,7 @@ pub async fn open_mini(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 /// Swap back. Same path as the tray, so the widget and the tray can't disagree about what
-/// "show Limusic" means.
+/// "show Vibratunes" means.
 #[tauri::command]
 pub async fn close_mini(app: tauri::AppHandle) -> Result<(), String> {
     crate::tray::show_main(&app);
@@ -2733,7 +2733,7 @@ pub fn lyrics_romanize(mut lyrics: crate::lyrics::Lyrics) -> crate::lyrics::Lyri
     lyrics
 }
 
-/// What Limusic Lyrics offers: `anonymous` gates contributing, `providers` are the identities that
+/// What Vibratunes Lyrics offers: `anonymous` gates contributing, `providers` are the identities that
 /// can be linked.
 #[tauri::command]
 pub async fn limusic_providers() -> crate::limusic::Providers {
@@ -2747,7 +2747,7 @@ pub fn limusic_status(state: St<'_>) -> serde_json::Value {
 }
 
 /// Opens the browser for `provider` and returns the code to compare with its confirm page. The
-/// outcome arrives as the `limusic-account` event.
+/// outcome arrives as the `vibratunes-account` event.
 #[tauri::command]
 pub async fn limusic_sign_in(state: St<'_>, provider: String) -> Result<String, String> {
     crate::limusic::sign_in(state.inner().clone(), provider).await
@@ -2785,7 +2785,7 @@ pub async fn limusic_live_revision(video_id: String) -> Result<Option<i64>, Stri
     crate::limusic::live_revision(&video_id).await
 }
 
-/// The votes on the lyric Limusic has live for the song, this account's own, and whether the lyric
+/// The votes on the lyric Vibratunes has live for the song, this account's own, and whether the lyric
 /// is its own work. `None` when there is no live lyric.
 #[tauri::command]
 pub async fn limusic_lyric_state(
@@ -2909,7 +2909,7 @@ pub async fn release_notes() -> Result<Vec<ReleaseNote>, String> {
     }
     let releases: Vec<GhRelease> = crate::http::client()
         .get("https://api.github.com/repos/SimoHypers/limusic/releases?per_page=20")
-        .header("User-Agent", concat!("Limusic/", env!("CARGO_PKG_VERSION")))
+        .header("User-Agent", concat!("Vibratunes/", env!("CARGO_PKG_VERSION")))
         .header("Accept", "application/vnd.github+json")
         .timeout(std::time::Duration::from_secs(15))
         .send()
@@ -3035,7 +3035,7 @@ pub fn quit_app(app: tauri::AppHandle) {
 // --- Diagnostics ----------------------------------------------------------------------------
 
 /// The bug-report blob for Settings ▸ About: environment header plus the redacted tail of
-/// `limusic.log`. See `crate::diagnostics`.
+/// `vibratunes.log`. See `crate::diagnostics`.
 #[tauri::command]
 pub fn diagnostics(app: tauri::AppHandle, state: St<'_>) -> String {
     crate::diagnostics::report(&app, &state.db)

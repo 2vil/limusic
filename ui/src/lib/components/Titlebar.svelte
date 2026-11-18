@@ -27,7 +27,7 @@
 		Download04Icon,
 		Settings02Icon
 	} from '@hugeicons/core-free-icons';
-	import LimusicLoader from './LimusicLoader.svelte';
+	import VibratunesLoader from './VibratunesLoader.svelte';
 	import LastFmIcon from './LastFmIcon.svelte';
 	import DiscordIcon from './DiscordIcon.svelte';
 	import AccountMenu from './AccountMenu.svelte';
@@ -278,7 +278,7 @@
 			<span class="relative">
 				<LastFmIcon class="h-4 w-4 {connecting ? 'animate-pulse opacity-60' : ''}" />
 				{#if connecting}
-					<LimusicLoader class="absolute -bottom-1.5 -right-2 size-4" />
+					<VibratunesLoader class="absolute -bottom-1.5 -right-2 size-4" />
 				{:else if connected}
 					<!-- bg-background ring so the badge reads over the icon's stroke. -->
 					<HugeiconsIcon

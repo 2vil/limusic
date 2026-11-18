@@ -27,7 +27,7 @@
     import TrackFilter, {
         filterTracks,
     } from "$lib/components/TrackFilter.svelte";
-    import LimusicLoader from "$lib/components/LimusicLoader.svelte";
+    import VibratunesLoader from "$lib/components/VibratunesLoader.svelte";
     import Shelf from "$lib/components/Shelf.svelte";
     import ErrorState from "$lib/components/ErrorState.svelte";
     import ArtistLine from "$lib/components/ArtistLine.svelte";
@@ -225,7 +225,7 @@
 </script>
 
 {#if loading}
-    <div class="flex h-full items-center justify-center"><LimusicLoader /></div>
+    <div class="flex h-full items-center justify-center"><VibratunesLoader /></div>
 {:else if error}
     <div class="p-6"><ErrorState message={error} onRetry={() => load(id)} /></div>
 {:else if album}

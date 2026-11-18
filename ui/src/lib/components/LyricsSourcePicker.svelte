@@ -25,7 +25,7 @@
 		Timer01Icon,
 		TranslateIcon
 	} from '@hugeicons/core-free-icons';
-	import LimusicLoader from './LimusicLoader.svelte';
+	import VibratunesLoader from './VibratunesLoader.svelte';
 	import * as Popover from '$lib/components/ui/popover';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -34,8 +34,8 @@
 	import { t, currentLocale } from '$lib/i18n.svelte';
 	import { KIND_CLASS, KIND_LABEL, lyricsKind } from '$lib/lyricsSources';
 	import { goto } from '$app/navigation';
-	import { limusic } from '$lib/limusic.svelte';
-	import { REPORT_REASONS, creditNames, feedbackErrorKey, nextVote, withVote } from '$lib/limusic';
+	import { limusic } from '$lib/vibratuneslyrics.svelte';
+	import { REPORT_REASONS, creditNames, feedbackErrorKey, nextVote, withVote } from '$lib/vibratuneslyrics';
 	import { link } from '$lib/link.svelte';
 	import { draftKey, unpackDraft, wordsTimed } from '$lib/lyricsedit';
 
@@ -235,20 +235,20 @@
 	}
 
 	// --- Votes and reports ------------------------------------------------------------------------
-	// For the lyric Limusic has live, when that is the one on screen. No sign-in: the first vote or
+	// For the lyric Vibratunes has live, when that is the one on screen. No sign-in: the first vote or
 	// report makes an anonymous account, silently, as the first submit does.
 	const rateable = $derived(
 		lyrics?.provider === 'limusic' && (limusic.available || limusic.signedIn) && !api.isLocalId(track.videoId)
 	);
 	/** The votes, mine among them. Null while they load, and when there is nothing to vote on. */
-	let rating = $state<api.LimusicLyricState | null>(null);
+	let rating = $state<api.VibratunesLyricState | null>(null);
 	let ratingLoading = $state(false);
 	/** The song, revision and account `rating` belongs to. A late answer for another is dropped,
 	 *  and '' asks again on the next open. */
 	let ratingFor = '';
 	let voting = false;
 	let reportOpen = $state(false);
-	let reportReason = $state<api.LimusicReportReason | null>(null);
+	let reportReason = $state<api.VibratunesReportReason | null>(null);
 	let reportNote = $state('');
 	let reported = $state(false);
 
@@ -427,7 +427,7 @@
 						</span>
 					</span>
 					{#if busy === 'auto'}
-						<LimusicLoader class="size-4" />
+						<VibratunesLoader class="size-4" />
 					{:else if !pinned}
 						<HugeiconsIcon icon={Tick02Icon} class="h-4 w-4 shrink-0 text-primary" />
 					{/if}
@@ -476,7 +476,7 @@
 								>{/if}
 						</span>
 						{#if busy === p.id}
-							<LimusicLoader class="size-4" />
+							<VibratunesLoader class="size-4" />
 						{/if}
 						{#if r.status === 'loading'}
 							<span class="flex shrink-0 items-center gap-1.5">
@@ -562,7 +562,7 @@
 		{/if}
 
 		{#if rateable && (ratingLoading || (rating && !rating.own))}
-			<!-- Votes and reports on Limusic's lyric. The same row and pill as Timing above it. -->
+			<!-- Votes and reports on Vibratunes's lyric. The same row and pill as Timing above it. -->
 			<div class="border-t">
 				<div class="flex items-center gap-3 px-4 py-3">
 					<HugeiconsIcon icon={StarIcon} class="h-4 w-4 shrink-0 text-muted-foreground" />

@@ -16,7 +16,7 @@
 		ServerStack01Icon,
 		PlusSignIcon
 	} from '@hugeicons/core-free-icons';
-	import LimusicLoader from './LimusicLoader.svelte';
+	import VibratunesLoader from './VibratunesLoader.svelte';
 	import * as api from '$lib/api';
 	import { copyText } from '$lib/clipboard';
 	import { ui, toast } from '$lib/player.svelte';
@@ -147,7 +147,7 @@
 		{#if waiting}
 			<!-- Asked to join / creating — waiting on the room. -->
 			<div class="flex min-w-0 flex-col items-center gap-4 py-12">
-				<LimusicLoader />
+				<VibratunesLoader />
 				<p class="text-center text-sm text-muted-foreground">
 					{lt.status === 'connecting'
 						? t('dialogs.listen_together.connecting')

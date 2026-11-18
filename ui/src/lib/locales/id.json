@@ -85,7 +85,7 @@
 		"history": "Riwayat",
 		"add_account": "Tambah akun",
 		"remove_account": "Hapus akun",
-		"remove_account_title": "Hapus dari Limusic?",
+		"remove_account_title": "Hapus dari Vibratunes?",
 		"remove_account_desc": "{name} hanya dihapus dari daftar ini. Akun Google itu sendiri tidak terpengaruh, dan Anda dapat masuk kembali kapan saja.",
 		"saved_accounts_hint": "Pilih akun tersimpan untuk beralih ke akun tersebut.",
 		"no_channels": "YouTube tidak mengembalikan saluran yang dapat dipilih.",
@@ -336,9 +336,9 @@
 			"hotkeys": "Pintasan Global",
 			"hotkeys_hint": "Pintasan seluruh sistem untuk mengontrol pemutaran.",
 			"devices": "Perangkat",
-			"devices_hint": "Kendalikan komputer ini dari Limusic di ponsel Anda.",
+			"devices_hint": "Kendalikan komputer ini dari Vibratunes di ponsel Anda.",
 			"contributing": "Kontribusi",
-			"contributing_hint": "Akun Limusic Lyrics Anda, dan cara menambahkan lirik."
+			"contributing_hint": "Akun Vibratunes Lyrics Anda, dan cara menambahkan lirik."
 		},
 		"sections": {
 			"language": "Bahasa",
@@ -370,30 +370,30 @@
 			"language_hint": "Pilih bahasa tampilan antarmuka.",
 			"shortcuts_hint": "Buka pintasan papan ketik dengan {key}",
 			"autostart": "Jalankan saat komputer menyala",
-			"autostart_hint": "Mulai Limusic secara otomatis saat sistem Anda dinyalakan.",
+			"autostart_hint": "Mulai Vibratunes secara otomatis saat sistem Anda dinyalakan.",
 			"close_to_tray": "Tutup ke baki sistem (tray)",
-			"close_to_tray_hint": "Biarkan Limusic tetap berjalan di latar belakang saat jendela ditutup.",
+			"close_to_tray_hint": "Biarkan Vibratunes tetap berjalan di latar belakang saat jendela ditutup.",
 			"discord_rpc": "Discord Rich Presence",
 			"discord_rpc_hint": "Tampilkan lagu yang sedang diputar di profil Discord Anda.",
 			"update_banner": "Notifikasi pembaruan",
-			"update_banner_hint": "Tampilkan banner saat versi baru Limusic tersedia.",
+			"update_banner_hint": "Tampilkan banner saat versi baru Vibratunes tersedia.",
 			"proxy": "Proksi HTTP/HTTPS",
 			"proxy_hint": "Arahkan semua permintaan jaringan melalui server proksi kustom.",
 			"proxy_placeholder": "http://host:port (kosong = tidak ada)",
 			"stream_clients": "Klien streaming",
 			"stream_clients_hint": "Nonaktifkan klien untuk melewatinya saat memuat stream. Diabaikan jika variabel lingkungan {var} diatur.",
 			"system_titlebar": "Gunakan bilah judul sistem",
-			"system_titlebar_hint": "Biarkan desktop Anda menggambar bingkai jendela beserta tombol-tombolnya. Limusic tetap menggunakan bilah alatnya sendiri di bawahnya.",
+			"system_titlebar_hint": "Biarkan desktop Anda menggambar bingkai jendela beserta tombol-tombolnya. Vibratunes tetap menggunakan bilah alatnya sendiri di bawahnya.",
 			"language_search": "Cari bahasa",
-			"language_contribute": "Bantu menerjemahkan Limusic",
+			"language_contribute": "Bantu menerjemahkan Vibratunes",
 			"track_notifications": "Notifikasi lagu",
-			"track_notifications_hint": "Tampilkan notifikasi saat lagu baru dimulai saat Limusic berada di latar belakang.",
+			"track_notifications_hint": "Tampilkan notifikasi saat lagu baru dimulai saat Vibratunes berada di latar belakang.",
 			"start_minimized": "Mulai di baki sistem saat komputer menyala",
-			"start_minimized_hint": "Saat Limusic dimulai bersama sistem, aplikasi tetap berada di baki sistem sampai Anda membukanya. Membuka aplikasi secara manual akan selalu menampilkan jendela.",
-			"track_notifications_focused": "Sambil menggunakan Limusic",
-			"track_notifications_focused_hint": "Tampilkan juga notifikasi ketika lagu berikutnya mulai sendiri saat Limusic adalah jendela aktif. Lagu yang Anda pilih sendiri tidak akan menampilkan notifikasi.",
+			"start_minimized_hint": "Saat Vibratunes dimulai bersama sistem, aplikasi tetap berada di baki sistem sampai Anda membukanya. Membuka aplikasi secara manual akan selalu menampilkan jendela.",
+			"track_notifications_focused": "Sambil menggunakan Vibratunes",
+			"track_notifications_focused_hint": "Tampilkan juga notifikasi ketika lagu berikutnya mulai sendiri saat Vibratunes adalah jendela aktif. Lagu yang Anda pilih sendiri tidak akan menampilkan notifikasi.",
 			"play_on_start": "Lanjutkan pemutaran saat dibuka",
-			"play_on_start_hint": "Putar antrian musik Anda yang terakhir saat Limusic terbuka."
+			"play_on_start_hint": "Putar antrian musik Anda yang terakhir saat Vibratunes terbuka."
 		},
 		"themes": {
 			"interface_font": "Font antarmuka",
@@ -446,7 +446,7 @@
 			"preview_hint": "Perubahan penggeser dan pemilih warna ditampilkan di sini saat Anda menyeretnya, lalu diterapkan ke aplikasi saat Anda melepasnya.",
 			"blur_playlist_header": "Burmaskan header daftar putar",
 			"blur_playlist_header_hint": "Tampilkan sampul daftar putar yang blur di dietro header-nya. Membuat halus sampul yang terlihat piksel dan diregang ke lebar penuh.",
-			"matugen_hint": "Ambil setiap warna, termasuk aksen, dari palet yang dibuat Matugen, wallust, atau pywal dari wallpaper Anda. Siapkan template Limusic di alat tersebut terlebih dahulu.",
+			"matugen_hint": "Ambil setiap warna, termasuk aksen, dari palet yang dibuat Matugen, wallust, atau pywal dari wallpaper Anda. Siapkan template Vibratunes di alat tersebut terlebih dahulu.",
 			"classic_player": "Tata letak pemain klasik",
 			"classic_player_hint": "Tampilan pemain asli: artwork saja di atas salinan blur dari sampul, dengan detail lagu berada di sebelah bilah pemain. Off menggunakan tata letak baru, dengan judul, artis dan album di bawah artwork dan tampilan diterangi oleh warna sampul.",
 			"matugen": "Palet wallpaper",
@@ -569,7 +569,7 @@
 			"update_check_failed": "Pemeriksaan pembaruan gagal: {error}",
 			"update_packaged": "Versi ini dipasang menggunakan pengelola paket, perbarui dengan cara yang sama.",
 			"kofi": "Belikan saya kopi",
-			"kofi_hint": "Limusic gratis dan akan selalu gratis. Ko-fi tersedia jika Anda ingin memberikan dukungan donasi.",
+			"kofi_hint": "Vibratunes gratis dan akan selalu gratis. Ko-fi tersedia jika Anda ingin memberikan dukungan donasi.",
 			"kofi_button": "Buka Ko-fi",
 			"rollback_available": "Versi ini dikembalikan ke {version}, versi stabil terakhir yang diketahui.",
 			"beta": "Versi beta",
@@ -577,7 +577,7 @@
 		},
 		"hotkeys": {
 			"title": "Pintasan Global",
-			"description": "Kendalikan pemutaran dengan pintasan papan ketik yang dapat disesuaikan, bahkan saat Limusic diminimalkan atau berjalan di latar belakang.",
+			"description": "Kendalikan pemutaran dengan pintasan papan ketik yang dapat disesuaikan, bahkan saat Vibratunes diminimalkan atau berjalan di latar belakang.",
 			"enable": "Aktifkan pintasan global",
 			"enable_hint": "Pintasan global dinonaktifkan. Aktifkan untuk mendengarkan pintasan di seluruh sistem.",
 			"off": "Mati",
@@ -612,7 +612,7 @@
 			"action_toggle_repeat": "Beralih pengulangan",
 			"action_toggle_repeat_hint": "Ubah mode pengulangan: mati, semua, satu.",
 			"action_show_app": "Tampilkan aplikasi",
-			"action_show_app_hint": "Bawa jendela Limusic ke latar depan."
+			"action_show_app_hint": "Bawa jendela Vibratunes ke latar depan."
 		},
 		"discord": {
 			"enable": "Rich Presence",
@@ -628,8 +628,8 @@
 			"status_line1": "Baris 1",
 			"status_line2": "Baris 2",
 			"app_name": "Nama aplikasi",
-			"app_name_hint": "Menggantikan \"Limusic\" di mana pun nama aplikasi muncul. Biarkan kosong untuk mempertahankannya.",
-			"app_name_placeholder": "Limusic",
+			"app_name_hint": "Menggantikan \"Vibratunes\" di mana pun nama aplikasi muncul. Biarkan kosong untuk mempertahankannya.",
+			"app_name_placeholder": "Vibratunes",
 			"line1": "Baris 1",
 			"line1_hint": "Baris teks tebal, tepat di bawah header.",
 			"line2": "Baris 2",
@@ -642,7 +642,7 @@
 			"cover": "Sampul album",
 			"cover_hint": "Tampilkan gambar sampul di samping informasi trek.",
 			"badge": "Lencana penyedia",
-			"badge_hint": "Tandai sampul dengan ikon kecil Limusic, seperti kartu Spotify dan Apple Music.",
+			"badge_hint": "Tandai sampul dengan ikon kecil Vibratunes, seperti kartu Spotify dan Apple Music.",
 			"line3": "Baris 3",
 			"line3_hint": "Baris terakhir. Discord juga menggunakannya sebagai teks saat mengarahkan kursor ke sampul, jadi memerlukan sampul album aktif.",
 			"timestamps": "Bilah durasi",
@@ -657,7 +657,7 @@
 			"button_listen": "Dengarkan di YouTube Music",
 			"button_album": "Lihat album",
 			"button_artist": "Lihat artis",
-			"button_app": "Dapatkan Limusic",
+			"button_app": "Dapatkan Vibratunes",
 			"button_off": "Tidak ada",
 			"preview": "Pratinjau",
 			"preview_live": "Sedang diputar",
@@ -670,7 +670,7 @@
 		},
 		"scrobbling": {
 			"account_disconnected": "Hubungkan akun Last.fm Anda untuk melakukan scrobble musik yang Anda putar.",
-			"account_connecting": "Menunggu Anda menyetujui Limusic di peramban.",
+			"account_connecting": "Menunggu Anda menyetujui Vibratunes di peramban.",
 			"connect": "Hubungkan",
 			"open_profile": "Buka profil Last.fm Anda",
 			"since": "Scrobble sejak {date}",
@@ -753,10 +753,10 @@
 		"devices": {
 			"title": "Putar di mana saja",
 			"subtitle": "Perangkat Anda saling mengendalikan, dan musik berpindah di antaranya.",
-			"intro": "Hubungkan Limusic di ponsel Anda: masing-masing menampilkan dan mengendalikan apa yang diputar yang lain, dan musik berpindah ke perangkat yang Anda pilih.",
+			"intro": "Hubungkan Vibratunes di ponsel Anda: masing-masing menampilkan dan mengendalikan apa yang diputar yang lain, dan musik berpindah ke perangkat yang Anda pilih.",
 			"link_phone": "Hubungkan ponsel",
 			"link_another": "Hubungkan ponsel lain",
-			"step_open": "Di ponsel Anda, buka Limusic: Pengaturan › Integrasi › Perangkat",
+			"step_open": "Di ponsel Anda, buka Vibratunes: Pengaturan › Integrasi › Perangkat",
 			"step_type": "Ketik kode ini",
 			"custom_server": "Di server ini, ketik {invite}",
 			"expires_in": "Kedaluwarsa dalam {time}",
@@ -831,7 +831,7 @@
 			"reset_zoom": "Atur ulang skala",
 			"show_this_list": "Tampilkan daftar ini",
 			"refresh_page": "Segarkan halaman",
-			"quit_app": "Keluar dari Limusic"
+			"quit_app": "Keluar dari Vibratunes"
 		},
 		"tempo_pitch": {
 			"title": "Tempo, nada & gema",
@@ -974,7 +974,7 @@
 		"discord_tooltip_off": "Tampilkan apa yang Anda putar di Discord",
 		"lastfm_scrobbling_as": "Scrobble sebagai {user}",
 		"lastfm_disconnected": "Last.fm terputus",
-		"lastfm_approve_in_browser": "Setujui Limusic di peramban Anda",
+		"lastfm_approve_in_browser": "Setujui Vibratunes di peramban Anda",
 		"lastfm_connecting": "Menghubungkan ke Last.fm — klik untuk membatalkan",
 		"lastfm_scrobble_to": "Scrobble ke Last.fm",
 		"disconnect": "Putuskan",
@@ -1077,7 +1077,7 @@
 			"qq": "Katalog musik Tiongkok, sangat lengkap untuk lagu Mandopop dan Cantopop.",
 			"kugou": "Katalog musik Tiongkok, cocok untuk trek yang lebih langka.",
 			"unison": "Lirik komunitas dari Better Lyrics, sebagian besar kata demi kata, disinkronkan ke video yang tepat.",
-			"limusic": "Lirik dari Limusic sendiri, selalu kata demi kata, disinkronkan ke video yang tepat."
+			"limusic": "Lirik dari Vibratunes sendiri, selalu kata demi kata, disinkronkan ke video yang tepat."
 		},
 		"text_size": "Ukuran teks",
 		"text_size_smaller": "Teks lebih kecil",
@@ -1105,10 +1105,10 @@
 		"report_send": "Kirim laporan",
 		"reported": "Dilaporkan. Seorang peninjau akan memeriksanya.",
 		"feedback_own": "Ini lirik Anda sendiri.",
-		"feedback_gone": "Lirik ini sudah tidak ada di Limusic.",
+		"feedback_gone": "Lirik ini sudah tidak ada di Vibratunes.",
 		"feedback_rate_limited": "Terlalu banyak sekaligus. Coba lagi nanti.",
 		"feedback_banned": "Akun ini tidak dapat memberi suara atau melaporkan.",
-		"feedback_failed": "Limusic Lyrics tidak dapat dihubungi, jadi tidak tersimpan."
+		"feedback_failed": "Vibratunes Lyrics tidak dapat dihubungi, jadi tidak tersimpan."
 	},
 	"queue": {
 		"title": "Antrean"
@@ -1258,7 +1258,7 @@
 	"errors": {
 		"unreachable": "Tidak dapat menjangkau YouTube Music. Periksa koneksi Anda.",
 		"offline_title": "Tidak ada koneksi",
-		"offline_body": "Limusic tidak dapat menjangkau YouTube Music. Periksa koneksi internet Anda, lalu coba lagi.",
+		"offline_body": "Vibratunes tidak dapat menjangkau YouTube Music. Periksa koneksi internet Anda, lalu coba lagi.",
 		"generic_title": "Terjadi kesalahan"
 	},
 	"import": {
@@ -1294,7 +1294,7 @@
 		"to_check": "{count} untuk diperiksa",
 		"not_found": "{count} tidak ditemukan",
 		"keep_browsing_hint": "Anda dapat menutup jendela ini, proses impor tetap berlanjut. Bilah samping menunjukkan perkembangan proses.",
-		"pace_hint": "Limusic sengaja berjalan perlahan, sekitar satu lagu tiap dua detik, agar terbaca sebagai penggunaan normal oleh YouTube Music.",
+		"pace_hint": "Vibratunes sengaja berjalan perlahan, sekitar satu lagu tiap dua detik, agar terbaca sebagai penggunaan normal oleh YouTube Music.",
 		"waiting": "Berhenti sejenak agar tetap berada dalam batas wajar YouTube Music. Proses akan dilanjutkan pada pukul {time}.",
 		"keep_browsing": "Tetap menjelajah",
 		"stop": "Berhenti",
@@ -1356,12 +1356,12 @@
 			"empty": "Tidak ada lagu di dalamnya.",
 			"unreadable": "Berkas tidak dapat dibaca. Gunakan zip yang dikirimkan Spotify melalui email, salah satu berkas JSON di dalamnya, atau berkas CSV.",
 			"csv_columns": "Berkas CSV tersebut tidak memiliki kolom judul lagu.",
-			"spotify_changed": "Spotify mengubah format pembagian daftar putarnya. Pembaruan Limusic akan memperbaikinya.",
+			"spotify_changed": "Spotify mengubah format pembagian daftar putarnya. Pembaruan Vibratunes akan memperbaikinya.",
 			"busy": "Proses impor lain sedang berjalan.",
 			"nothing_read": "Pilih daftar putar terlebih dahulu.",
 			"gone": "Proses impor tersebut sudah tidak aktif.",
 			"not_found": "Tidak dapat menemukan lagu tersebut di YouTube Music.",
-			"cooldown": "YouTube Music meminta Limusic untuk memperlambat proses, sehingga impor dijeda hingga {time}. Semua trek yang telah ditemukan tetap tersimpan."
+			"cooldown": "YouTube Music meminta Vibratunes untuk memperlambat proses, sehingga impor dijeda hingga {time}. Semua trek yang telah ditemukan tetap tersimpan."
 		},
 		"paste_link_hint": "Hanya tersedia sebagai video di YouTube? Tempel tautannya."
 	},
@@ -1465,7 +1465,7 @@
 		"nothing_in_range": "Tidak diputar dalam periode ini.",
 		"empty_title": "Statistik Anda dimulai dari sini",
 		"empty": "Mainkan beberapa lagu dan halaman ini akan terisi dengan apa yang Anda dengarkan, kapan, dan selama berapa lama.",
-		"on_device": "Dihitung pada perangkat ini dari apa yang Anda mainkan di Limusic. Tidak ada yang dikirim ke mana-mana.",
+		"on_device": "Dihitung pada perangkat ini dari apa yang Anda mainkan di Vibratunes. Tidak ada yang dikirim ke mana-mana.",
 		"clear": "Hapus riwayat mendengar",
 		"clear_title": "Hapus riwayat mendengar?",
 		"clear_desc": "Hal ini menghapus setiap putaran yang dihitung pada perangkat ini, sehingga statistik Anda dimulai dari awal dan On Repeat dikosongkan. Riwayat YouTube Music Anda tidak disentuh.",
@@ -1504,7 +1504,7 @@
 			"runtime_linux": "ONNX Runtime (dari rilis resmi GitHub-nya) dan plugin ONNX Runtime WebGPU (dari files.pythonhosted.org) juga diunduh.",
 			"credit": "UVR-MDX-NET-Inst_HQ_3, UVR-MDX-NET-Inst_Main, dan UVR_MDXNET_3_9662, dari Ultimate Vocal Remover karya Anjok07 dan aufr33, Lisensi MIT.",
 			"credit_link": "Ultimate Vocal Remover",
-			"redownload": "Untuk menyiapkan sebuah lagu, Limusic mengunduh audionya sekali lagi.",
+			"redownload": "Untuk menyiapkan sebuah lagu, Vibratunes mengunduh audionya sekali lagi.",
 			"directml": "Di kartu grafis, karaoke berjalan melalui Microsoft DirectML, yang mungkin mengirim data penggunaan ke Microsoft."
 		},
 		"download_error": {
@@ -1580,7 +1580,7 @@
 		},
 		"setup": {
 			"title": "Siapkan karaoke",
-			"desc": "Limusic menghilangkan vokal dari lagu langsung di komputer ini. Pilih kualitas untuk diunduh sekali, Anda bisa mengubahnya nanti.",
+			"desc": "Vibratunes menghilangkan vokal dari lagu langsung di komputer ini. Pilih kualitas untuk diunduh sekali, Anda bisa mengubahnya nanti.",
 			"local": "Lagu disiapkan di komputer ini dan tidak ada yang diunggah.",
 			"cache": "Lagu yang sudah disiapkan disimpan di disk, jadi langsung diputar lain kali.",
 			"download": "Unduh {size}",
@@ -1589,12 +1589,12 @@
 			"progress": "{done} dari {total} MB"
 		},
 		"unavailable": {
-			"not_installed": "Karaoke tidak termasuk dalam versi Limusic ini.",
-			"corrupt": "Berkas karaoke rusak. Coba aktifkan karaoke lagi; jika masih tidak berhasil, pasang ulang Limusic.",
+			"not_installed": "Karaoke tidak termasuk dalam versi Vibratunes ini.",
+			"corrupt": "Berkas karaoke rusak. Coba aktifkan karaoke lagi; jika masih tidak berhasil, pasang ulang Vibratunes.",
 			"vc_runtime": "Karaoke memerlukan Microsoft Visual C++ Redistributable versi lebih baru (14.44 atau lebih tinggi).",
 			"load_failed": "Karaoke tidak dapat dimulai di komputer ini.",
 			"proxy": "Karaoke tidak tersedia saat proksi diatur.",
-			"stopped": "Karaoke berhenti secara tak terduga. Mulai ulang Limusic untuk memakainya lagi."
+			"stopped": "Karaoke berhenti secara tak terduga. Mulai ulang Vibratunes untuk memakainya lagi."
 		}
 	},
 	"limusic": {
@@ -1635,8 +1635,8 @@
 		"signin_banned": "Akun ini tidak dapat masuk.",
 		"signin_failed": "Proses masuk tidak berhasil. Mulai lagi.",
 		"signin_rate_limited": "Terlalu banyak percobaan. Coba lagi nanti.",
-		"session_ended": "Anda telah keluar dari akun Limusic Anda. Hubungkan lagi untuk mendapatkan nama Anda kembali.",
-		"unreachable": "Limusic Lyrics tidak dapat dihubungi."
+		"session_ended": "Anda telah keluar dari akun Vibratunes Anda. Hubungkan lagi untuk mendapatkan nama Anda kembali.",
+		"unreachable": "Vibratunes Lyrics tidak dapat dihubungi."
 	},
 	"review": {
 		"title": "Tinjau lirik",
@@ -1680,12 +1680,12 @@
 		"rejected": "Ditolak.",
 		"taken_down": "Diturunkan.",
 		"err_gone": "Peninjau lain sudah memutuskan yang ini. Lirik ini keluar dari daftar Anda.",
-		"err_signed_out": "Anda telah keluar dari akun Limusic Anda. Hubungkan lagi untuk tetap bisa meninjau.",
+		"err_signed_out": "Anda telah keluar dari akun Vibratunes Anda. Hubungkan lagi untuk tetap bisa meninjau.",
 		"err_forbidden": "Akun Anda tidak dapat meninjau lirik.",
 		"err_banned": "Akun ini tidak dapat meninjau lirik.",
 		"err_rate_limited": "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
 		"err_invalid": "Layanan menolak permintaan itu.",
-		"err_unavailable": "Limusic Lyrics tidak dapat dihubungi.",
+		"err_unavailable": "Vibratunes Lyrics tidak dapat dihubungi.",
 		"settings_waiting": "{count} menunggu peninjauan",
 		"settings_none": "Tidak ada yang menunggu peninjauan",
 		"settings_open": "Tinjau lirik"
@@ -1821,9 +1821,9 @@
 		"sending": "Mengirim",
 		"done": "Selesai",
 		"sent_published_title": "Lirik Anda sudah aktif",
-		"sent_published": "Terima kasih telah menambahkan ke Limusic Lyrics.",
+		"sent_published": "Terima kasih telah menambahkan ke Vibratunes Lyrics.",
 		"sent_pending_title": "Terkirim",
-		"sent_pending": "Lirik Anda aktif setelah seorang peninjau menyetujuinya. Terima kasih telah menambahkan ke Limusic Lyrics.",
+		"sent_pending": "Lirik Anda aktif setelah seorang peninjau menyetujuinya. Terima kasih telah menambahkan ke Vibratunes Lyrics.",
 		"err_signed_out_title": "Anda telah keluar",
 		"err_signed_out": "Draf Anda tersimpan. Kirim lagi untuk mengajukannya tanpa nama, atau hubungkan akun Anda di Pengaturan terlebih dahulu.",
 		"err_banned_title": "Akun ini tidak dapat mengirim lirik",
@@ -1839,7 +1839,7 @@
 		"err_unchanged": "Lirik ini sama dengan yang sudah aktif.",
 		"err_rate_limited_title": "Terlalu banyak dalam satu jam",
 		"err_rate_limited": "Coba lagi nanti. Draf Anda tersimpan.",
-		"err_unavailable_title": "Limusic Lyrics tidak dapat dihubungi",
+		"err_unavailable_title": "Vibratunes Lyrics tidak dapat dihubungi",
 		"err_unavailable": "Draf Anda tersimpan. Coba lagi sebentar lagi.",
 		"add_gap": "Tambahkan jeda instrumental",
 		"gap": "Jeda instrumental",

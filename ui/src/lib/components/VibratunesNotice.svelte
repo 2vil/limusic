@@ -1,5 +1,5 @@
 <script lang="ts">
-	// One message from Limusic Lyrics or about a draft: what happened, one sentence, and the button
+	// One message from Vibratunes Lyrics or about a draft: what happened, one sentence, and the button
 	// that helps. The editor, its send dialog and the review page all say things this way.
 	import type { Snippet } from 'svelte';
 	import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/svelte';

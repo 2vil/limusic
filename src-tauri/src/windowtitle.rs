@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 
 /// `None` means nothing is current, so the title is the app's own name.
 fn title(item: Option<&SongItem>) -> String {
-    let Some(item) = item else { return "Limusic".to_owned() };
+    let Some(item) = item else { return "Vibratunes".to_owned() };
     let artists = item.artists.trim();
     if artists.is_empty() {
         item.title.clone()
@@ -50,6 +50,6 @@ mod tests {
 
     #[test]
     fn nothing_current_is_the_app_name() {
-        assert_eq!(title(None), "Limusic");
+        assert_eq!(title(None), "Vibratunes");
     }
 }

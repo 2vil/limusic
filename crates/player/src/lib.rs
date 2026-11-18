@@ -296,8 +296,8 @@ fn new_mpv(cache_dir: &str) -> Result<Mpv, Error> {
     // What the system mixer calls the stream. mpv's own names are "mpv" and `<media title> - mpv`,
     // and the media title of a proxied stream is the last segment of its loopback URL, so KDE's
     // mixer listed "e09087d13ce71f6d - mpv" (issue #409).
-    mpv.set_property("audio-client-name", "Limusic")?;
-    mpv.set_property("title", "Limusic")?;
+    mpv.set_property("audio-client-name", "Vibratunes")?;
+    mpv.set_property("title", "Vibratunes")?;
     mpv.set_property("gapless-audio", "yes")?;
     // mpv's native Matroska demuxer floors WebM DiscardPadding nanoseconds to Opus samples. For
     // values one nanosecond below a sample boundary (YouTube emits 6,833,333 ns), that leaves one
@@ -772,7 +772,7 @@ impl Player {
     /// tls.c), so an https proxy is dropped without a word.
     ///
     /// Only the scheme is logged: a proxy URI can carry credentials in its userinfo and the warning
-    /// lands in `limusic.log`, which is what users attach to bug reports.
+    /// lands in `vibratunes.log`, which is what users attach to bug reports.
     pub fn set_http_proxy(&self, proxy: Option<&str>) -> Result<(), Error> {
         let p = proxy.unwrap_or("").trim();
         let usable = p.is_empty() || p.starts_with("http://");

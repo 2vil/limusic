@@ -39,7 +39,7 @@ fn build_client(proxy: Option<&str>) -> reqwest::Client {
         match reqwest::Proxy::all(p) {
             Ok(proxy) => b = b.proxy(proxy),
             // Scheme only: the URI can carry credentials in its userinfo, and this lands in
-            // limusic.log, which is what users attach to bug reports.
+            // vibratunes.log, which is what users attach to bug reports.
             Err(e) => {
                 let scheme = p.split_once("://").map_or("(none)", |(s, _)| s);
                 tracing::warn!(scheme, "unusable proxy setting, going direct: {e}")
@@ -75,7 +75,7 @@ pub fn has_proxy() -> bool {
 /// only hands a host and port.
 ///
 /// The webviews load the artwork and the sign-in page themselves, so before this the setting never
-/// reached them and the images broke behind a proxy that only Limusic knew about (#465).
+/// reached them and the images broke behind a proxy that only Vibratunes knew about (#465).
 ///
 /// Read live on every window build (webviews are created on demand): a tunnel toggled mid-session
 /// is picked up by the next one.

@@ -1,11 +1,11 @@
 // Self-check for `review.ts`: `node --experimental-strip-types ui/src/lib/review.check.ts`
 import { ago, coverOf, diffLyrics, isGone, kindKey, restored, reviewErrorKey, waitingLabel, without } from './review.ts';
-import type { LimusicQueueItem, LyricLine } from './api';
+import type { VibratunesQueueItem, LyricLine } from './api';
 
 function ok(cond: boolean, what: string) {
 	if (!cond) throw new Error(`broken: ${what}`);
 }
-const row = (revision: number, kind = 'new'): LimusicQueueItem => ({
+const row = (revision: number, kind = 'new'): VibratunesQueueItem => ({
 	revision,
 	video_id: 'AAAAAAAAAAA',
 	title: 't',
@@ -16,7 +16,7 @@ const row = (revision: number, kind = 'new'): LimusicQueueItem => ({
 	created_at: 0,
 	reports: 0
 });
-const ids = (l: LimusicQueueItem[]) => l.map((i) => i.revision).join(',');
+const ids = (l: VibratunesQueueItem[]) => l.map((i) => i.revision).join(',');
 
 const list = [row(2), row(5), row(9)];
 ok(ids(without(list, 5)) === '2,9', 'a decided row leaves');

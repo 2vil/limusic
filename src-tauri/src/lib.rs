@@ -1,4 +1,4 @@
-//! Limusic Tauri app. Wires transport + player + db + orchestrator behind the command boundary.
+//! Vibratunes Tauri app. Wires transport + player + db + orchestrator behind the command boundary.
 
 mod appicon;
 mod audioproxy;
@@ -464,8 +464,8 @@ fn keep_on_screen(w: &tauri::WebviewWindow) {
     }
 }
 
-/// Logs to stdout **and** to `<app data>/limusic.log`, truncated each launch (the previous run is
-/// kept as `limusic.log.1`).
+/// Logs to stdout **and** to `<app data>/vibratunes.log`, truncated each launch (the previous run is
+/// kept as `vibratunes.log.1`).
 ///
 /// The filter names `app_lib`, the `[lib]` name, because that is what every tracing target in this
 /// crate carries (`app_lib::orchestrator`). It said `limusic_app` until 2026-08-29, which only ever
@@ -484,8 +484,8 @@ fn init_logging(dir: &std::path::Path) {
         tracing_subscriber::EnvFilter::try_from_default_env()
             .unwrap_or_else(|_| "info,app_lib=debug,ort=warn,flacenc=warn".into())
     };
-    let path = dir.join("limusic.log");
-    let _ = std::fs::rename(&path, dir.join("limusic.log.1"));
+    let path = dir.join("vibratunes.log");
+    let _ = std::fs::rename(&path, dir.join("vibratunes.log.1"));
     // ponytail: one file per launch, no size cap. A run long enough to matter is a run whose log
     // someone wants anyway; add rotation if that stops being true.
     let file = std::fs::File::create(&path).ok().map(std::sync::Mutex::new);
@@ -610,7 +610,7 @@ fn x11_egl_vendor() -> Option<String> {
 /// `main.rs` sets `windows_subsystem = "windows"` in release, so a panic here writes to a stderr
 /// that is not connected to anything: the user sees a process start and disappear, with no window,
 /// no console and no log line. `init_logging` has already run by the time any caller gets here, so
-/// this reaches limusic.log (the writer is unbuffered, so the line lands before the exit).
+/// this reaches vibratunes.log (the writer is unbuffered, so the line lands before the exit).
 ///
 /// There is deliberately no dialog, although the dialog plugin is registered. `setup` runs on the
 /// main thread inside the event loop's `Ready` handler, and the plugin shows a message box by
@@ -919,7 +919,7 @@ pub fn run() {
             let (db, quarantined) = match Db::open_or_quarantine(&data_dir.join("limusic.sqlite")) {
                 Ok(v) => v,
                 Err(e) => fatal(
-                    "Limusic could not open or create its database",
+                    "Vibratunes could not open or create its database",
                     &format!("{}: {e}", data_dir.display()),
                 ),
             };
@@ -1002,7 +1002,7 @@ pub fn run() {
             let session = Session { locale: Locale::default(), visitor_data, data_sync_id, cookie };
             let it = match InnerTube::new(session, api_proxy.as_deref()) {
                 Ok(it) => it,
-                Err(e) => fatal("Limusic could not start its network client", &e.to_string()),
+                Err(e) => fatal("Vibratunes could not start its network client", &e.to_string()),
             };
             // Shelf titles, mood chips and playlist subtitles are YouTube's text, so the UI's
             // language has to go out with the request (#274). Persisted rather than pushed from the
@@ -1022,7 +1022,7 @@ pub fn run() {
             let mut player = match Player::new(&cache_dir.to_string_lossy()) {
                 Ok(p) => p,
                 Err(e) => fatal(
-                    "Limusic could not load libmpv, which it uses to play audio",
+                    "Vibratunes could not load libmpv, which it uses to play audio",
                     &format!(
                         "{e}. On Linux, install your distribution's mpv library \
                          (Fedora: mpv-libs, Debian/Ubuntu: libmpv2)."
@@ -1045,7 +1045,7 @@ pub fn run() {
             let events = match player.take_events() {
                 Some(ev) => ev,
                 None => fatal(
-                    "Limusic could not start its audio event loop",
+                    "Vibratunes could not start its audio event loop",
                     "the player's event channel was already taken, which is a bug",
                 ),
             };

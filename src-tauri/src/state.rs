@@ -302,6 +302,7 @@ pub(crate) fn persisted_data_sync_id(db: &Db) -> Option<String> {
 
 fn identity_selection_key(data_sync_id: &str) -> String {
     let mut hasher = DefaultHasher::new();
+    // Historical salt: renaming it would invalidate every stored sign-in identity.
     "limusic-account-identity-v1".hash(&mut hasher);
     data_sync_id.hash(&mut hasher);
     format!("identity-{:016x}", hasher.finish())
@@ -3532,7 +3533,7 @@ impl AppState {
             && self.db.get_setting("track_notifications").as_deref() == Some("true")
         {
             // A gapless advance or a Listen Together host's change started on its own, so with the
-            // opt-in it notifies even with Limusic in front (#94). Ceiling: the rare non-primed
+            // opt-in it notifies even with Vibratunes in front (#94). Ceiling: the rare non-primed
             // advance at track end comes through `start_current` like a user's pick, and stays
             // background-only.
             let even_focused = matches!(stream_client, "gapless" | "listen-together")

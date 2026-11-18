@@ -85,7 +85,7 @@
 		"history": "Geçmiş",
 		"add_account": "Hesap ekle",
 		"remove_account": "Hesap sil",
-		"remove_account_title": "Limusic'ten sil?",
+		"remove_account_title": "Vibratunes'ten sil?",
 		"remove_account_desc": "{name} yalnızca bu listeden kaldırıldı. Google hesabınız bu eylemden etkilenmedi ve istediğiniz zaman onunla giriş yapabilirsiniz.",
 		"saved_accounts_hint": "Geçmek için kaydedilmiş bir hesabı seçin.",
 		"no_channels": "YouTube seçilebilir bir kanal döndürmedi.",
@@ -358,30 +358,30 @@
 			"language_hint": "Arayüzün görüntüleneceği dili seçin.",
 			"shortcuts_hint": "Klavye kısayollarını {key} ile açın",
 			"autostart": "Başlangıçta çalıştır",
-			"autostart_hint": "Sistem açıldığında Limusic uygulamasını otomatik başlatın.",
+			"autostart_hint": "Sistem açıldığında Vibratunes uygulamasını otomatik başlatın.",
 			"close_to_tray": "Sistem tepsisine küçült",
 			"close_to_tray_hint": "Pencere kapatıldığında arka planda çalışmaya devam etsin.",
 			"discord_rpc": "Discord Rich Presence",
 			"discord_rpc_hint": "Çalan şarkıyı Discord profilinizde gösterin.",
 			"update_banner": "Güncelleme bildirimleri",
-			"update_banner_hint": "Yeni bir Limusic sürümü çıktığında bildirim çubuğu gösterilsin.",
+			"update_banner_hint": "Yeni bir Vibratunes sürümü çıktığında bildirim çubuğu gösterilsin.",
 			"proxy": "HTTP/HTTPS Proxy",
 			"proxy_hint": "Ağ isteklerini özel bir vekil sunucu üzerinden yönlendirin.",
 			"proxy_placeholder": "örn. http://127.0.0.1:7890",
 			"stream_clients": "Akış istemcileri",
 			"stream_clients_hint": "Bir istemciyi kapatarak akış çözümlemesinde atlanmasını sağlayın. {var} ortam değişkeni bu ayarı geçersiz kılar.",
 			"system_titlebar": "Sistem başlık çubuğunu kullanın",
-			"system_titlebar_hint": "Masaüstünüz pencere çerçevesini ve butonları çizsin. Limusic kendi araç çubuğunu onun altında saklar.",
+			"system_titlebar_hint": "Masaüstünüz pencere çerçevesini ve butonları çizsin. Vibratunes kendi araç çubuğunu onun altında saklar.",
 			"language_search": "Dilleri ara",
-			"language_contribute": "Limusic'i çevirmeye yardım edin",
+			"language_contribute": "Vibratunes'i çevirmeye yardım edin",
 			"track_notifications": "Şarkı bildirimleri",
-			"track_notifications_hint": "Limusic arka plandayken yeni bir şarkı başladığında bildirim göster.",
+			"track_notifications_hint": "Vibratunes arka plandayken yeni bir şarkı başladığında bildirim göster.",
 			"start_minimized": "Başlangıçta sistem tepsisine başlat",
-			"start_minimized_hint": "Limusic sisteminle birlikte başladığında siz açana kadar tepside kalır. Kendiniz açtığınızda ise pencere her zaman gösterilir.",
-			"track_notifications_focused": "Ayrıca Limusic'i kullanırken bildirimler",
-			"track_notifications_focused_hint": "Ayrıca, Limusic penceresi aktifken bir sonraki şarkı kendiliğinden başladığında bir bildirim göster. Kendi seçtiğin şarkılarda ise böyle bir bildirim gösterilmez.",
+			"start_minimized_hint": "Vibratunes sisteminle birlikte başladığında siz açana kadar tepside kalır. Kendiniz açtığınızda ise pencere her zaman gösterilir.",
+			"track_notifications_focused": "Ayrıca Vibratunes'i kullanırken bildirimler",
+			"track_notifications_focused_hint": "Ayrıca, Vibratunes penceresi aktifken bir sonraki şarkı kendiliğinden başladığında bir bildirim göster. Kendi seçtiğin şarkılarda ise böyle bir bildirim gösterilmez.",
 			"play_on_start": "Açılışta çalmaya devam et",
-			"play_on_start_hint": "Limusic açıldığında son kuyruğunuzu otomatik olarak oynatır."
+			"play_on_start_hint": "Vibratunes açıldığında son kuyruğunuzu otomatik olarak oynatır."
 		},
 		"themes": {
 			"interface_font": "Arayüz yazı tipi",
@@ -433,7 +433,7 @@
 			"accent_artwork_note": "Bir şarkı çalarken vurgu, şarkının kapak resminden gelir. Bunu görmek için “Kapağa göre renkleri ayarla” seçeneğini kapatın.",
 			"preview_hint": "Sürüklerken kaydırma çubukları ve renk seçici burada görünür; parmağınızı bıraktığınızda uygulama buna uyum sağlar.",
 			"matugen": "Matugen",
-			"matugen_hint": "Matugen'in duvar kağıdınızdan oluşturduğu paletten, vurgu renkleri de dahil olmak üzere tüm renkleri alır. Öncelikle Matugen'de Limusic şablonunu ayarlayın.",
+			"matugen_hint": "Matugen'in duvar kağıdınızdan oluşturduğu paletten, vurgu renkleri de dahil olmak üzere tüm renkleri alır. Öncelikle Matugen'de Vibratunes şablonunu ayarlayın.",
 			"blur_playlist_header_hint": "Bir çalma listesinin kapak resmini, başlığının arkasında bulanık bir şekilde göster. Tam genişlikte pikselli görünen kapak resimlerini yumuşatır.",
 			"classic_player": "Klasik oynatıcı düzeni",
 			"blur_playlist_header": "Oynatma listesi başlıklarını bulanıklaştır",
@@ -545,7 +545,7 @@
 			"report_issue_button": "Bildir",
 			"update_check_failed": "Güncelleme denetimi başarısız oldu: {error}",
 			"kofi": "Bana bir kahve ısmarla",
-			"kofi_hint": "Limusic ücretsiz ve ücretsiz kalacak. Bağışta bulunmak isteyenler Ko-fi'den yapabilirler.",
+			"kofi_hint": "Vibratunes ücretsiz ve ücretsiz kalacak. Bağışta bulunmak isteyenler Ko-fi'den yapabilirler.",
 			"kofi_button": "Ko-fi'yi aç",
 			"rollback_available": "Bu sürüm, bilinen son sağlıklı sürüm olan {version} sürümüne geri alınıyor.",
 			"beta": "Beta sürümler",
@@ -565,8 +565,8 @@
 			"status_line1": "1. satır",
 			"status_line2": "2. satır",
 			"app_name": "Uygulama adı",
-			"app_name_hint": "Uygulama adının göründüğü her yerde \"Limusic\" yerine bunu kullanır. Değiştirmemek için boş bırakın.",
-			"app_name_placeholder": "Limusic",
+			"app_name_hint": "Uygulama adının göründüğü her yerde \"Vibratunes\" yerine bunu kullanır. Değiştirmemek için boş bırakın.",
+			"app_name_placeholder": "Vibratunes",
 			"line1": "1. satır",
 			"line1_hint": "Kalın yazılı satır, başlığın hemen altında.",
 			"line2": "2. satır",
@@ -579,7 +579,7 @@
 			"cover": "Albüm kapağı",
 			"cover_hint": "Parçanın yanında albüm kapağını gösterir.",
 			"badge": "Sağlayıcı rozeti",
-			"badge_hint": "Kapak resmini, Spotify ve Apple Music kartlarında olduğu gibi küçük bir Limusic simgesiyle işaretler.",
+			"badge_hint": "Kapak resmini, Spotify ve Apple Music kartlarında olduğu gibi küçük bir Vibratunes simgesiyle işaretler.",
 			"line3": "3. satır",
 			"line3_hint": "Son satır. Discord bunu kapak resminin üzerine gelindiğinde gösterilen ipucu metni olarak da kullanır, bu yüzden albüm kapağının açık olması gerekir.",
 			"timestamps": "İlerleme çubuğu",
@@ -594,7 +594,7 @@
 			"button_listen": "YouTube Music'te dinleyin",
 			"button_album": "Albümü görüntüle",
 			"button_artist": "Sanatçıyı görüntüle",
-			"button_app": "Limusic'i edin",
+			"button_app": "Vibratunes'i edin",
 			"button_off": "Hiçbiri",
 			"preview": "Önizle",
 			"preview_live": "Şimdi çalıyor",
@@ -607,7 +607,7 @@
 		},
 		"hotkeys": {
 			"title": "Genel Klavye Kısayolları",
-			"description": "Limusic simge durumuna küçültülmüş veya arka planda çalışıyor olsa bile, özelleştirilebilir klavye kısayollarıyla oynatmayı kontrol et.",
+			"description": "Vibratunes simge durumuna küçültülmüş veya arka planda çalışıyor olsa bile, özelleştirilebilir klavye kısayollarıyla oynatmayı kontrol et.",
 			"enable": "Sistem geneli kısayolları etkinleştir",
 			"enable_hint": "Genel klavye kısayolları devre dışı. Kısayolları sistem genelinde dinlemek için bunları aç.",
 			"off": "Kapalı",
@@ -642,7 +642,7 @@
 			"action_toggle_repeat": "Tekrarı aç/kapat",
 			"action_toggle_repeat_hint": "Tekrar modunu değiştirir: kapalı, tümü, tek.",
 			"action_show_app": "Uygulamayı göster",
-			"action_show_app_hint": "Limusic penceresini ön plana getirir."
+			"action_show_app_hint": "Vibratunes penceresini ön plana getirir."
 		},
 		"scrobbling": {
 			"stat_artists": "Sanatçılar",
@@ -677,7 +677,7 @@
 			"applied_rule": "Kural {n}",
 			"status_paused": "Skroplama kapalı.",
 			"status_short": "Skroplamak için çok kısa.",
-			"account_connecting": "Tarayıcınızda Limusic'i onaylamanızı bekliyoruz.",
+			"account_connecting": "Tarayıcınızda Vibratunes'i onaylamanızı bekliyoruz.",
 			"account_disconnected": "Last.fm hesabınızı bağlayarak dinlediğiniz şarkıları skroplayın.",
 			"edits_empty": "Henüz düzenleme yapılmadı. Herhangi bir şarkının menüsünden düzenleme ekleyebilirsiniz.",
 			"edits_show_all": "Tümünü göster {count}",
@@ -791,7 +791,7 @@
 			"reset_zoom": "Yakınlaştırmayı sıfırla",
 			"show_this_list": "Bu listeyi göster",
 			"refresh_page": "Sayfayı yenile",
-			"quit_app": "Limusic'ten çık"
+			"quit_app": "Vibratunes'ten çık"
 		},
 		"tempo_pitch": {
 			"title": "Tempo ve Perde Kontrolleri",
@@ -911,7 +911,7 @@
 		"discord_tooltip_off": "Çaldığınız parçayı Discord'da gösterin",
 		"lastfm_scrobbling_as": "{user} olarak Skroplanıyor",
 		"lastfm_disconnected": "Last.fm bağlantısı kesildi",
-		"lastfm_approve_in_browser": "Tarayıcınızda Limusic'e izin verin",
+		"lastfm_approve_in_browser": "Tarayıcınızda Vibratunes'e izin verin",
 		"lastfm_connecting": "Last.fm'e bağlanılıyor — iptal etmek için tıklayın",
 		"lastfm_scrobble_to": "Last.fm'e scrobble et",
 		"disconnect": "Bağlantıyı kes",
@@ -1145,7 +1145,7 @@
 	"errors": {
 		"unreachable": "YouTube Music'e erişilemedi. Bağlantınızı kontrol edin.",
 		"offline_title": "Bağlantı yok",
-		"offline_body": "Limusic, YouTube Music'e erişemiyor. İnternet bağlantınızı kontrol ederek tekrar deneyin.",
+		"offline_body": "Vibratunes, YouTube Music'e erişemiyor. İnternet bağlantınızı kontrol ederek tekrar deneyin.",
 		"generic_title": "Bir şeyler yanlış gitti"
 	},
 	"search": {
@@ -1200,7 +1200,7 @@
 		"matched": "{count} eşleşme bulundu",
 		"not_found": "{count} bulunamadı",
 		"keep_browsing_hint": "Bu sayfayı kapatabilirsiniz, çalışmaya devam eder. Kenar çubuğunda ilerleme durumu gösterilir.",
-		"pace_hint": "Limusic, YouTube Music’in normal kullanım olarak algılaması için bilerek yavaş ilerliyor; yaklaşık her iki saniyede bir istek gönderiyor.",
+		"pace_hint": "Vibratunes, YouTube Music’in normal kullanım olarak algılaması için bilerek yavaş ilerliyor; yaklaşık her iki saniyede bir istek gönderiyor.",
 		"waiting": "YouTube Music’in sınırları içinde kalmak için ara verildi. {time} saatinde devam edecek.",
 		"keep_browsing": "Gezinmeye devam et",
 		"to_check": "{count} kontrol edilmesi gereken",
@@ -1248,13 +1248,13 @@
 		"updating": "Güncelleniyor…",
 		"errors": {
 			"nothing_read": "Önce bir çalma listesi seçin.",
-			"cooldown": "YouTube Music, Limusic’ten hızını azaltmasını istedi; bu nedenle içe aktarma işlemleri {time} tarihine kadar askıya alındı. Şu ana kadar bulunan tüm içerikler kaydedildi.",
+			"cooldown": "YouTube Music, Vibratunes’ten hızını azaltmasını istedi; bu nedenle içe aktarma işlemleri {time} tarihine kadar askıya alındı. Şu ana kadar bulunan tüm içerikler kaydedildi.",
 			"not_spotify": "Bu bir Spotify çalma listesi ya da albüm bağlantısı değil.",
 			"private": "Bu çalma listesi gizlidir, bu nedenle bağlantı kullanılarak içe aktarılamaz. Çalma listesini aktarmak için aşağıdan Spotify verilerini talep edin.",
 			"unreadable": "Dosya okunamadı. Spotify'ın size e-posta ile gönderdiği zip dosyasını, içindeki JSON dosyalarından birini veya bir CSV dosyasını kullanın.",
 			"empty": "Listede hiçbir şarkı yok.",
 			"csv_columns": "Bu CSV dosyasında şarkı başlıklarını içeren bir sütun bulunmuyor.",
-			"spotify_changed": "Spotify, çalma listelerini paylaşma şeklini değiştirdi. Limusic’teki bir güncelleme bu sorunu çözecektir.",
+			"spotify_changed": "Spotify, çalma listelerini paylaşma şeklini değiştirdi. Vibratunes’teki bir güncelleme bu sorunu çözecektir.",
 			"busy": "Bir içe aktarma işlemi hâla devam ediyor.",
 			"gone": "Bu içe aktarma artık açık değil.",
 			"not_found": "Youtube Music'te bulunamadı.",
@@ -1376,7 +1376,7 @@
 		"busiest_hour": "En yoğun saat",
 		"share": "Dinlemelerinizin {percent} kadarını oluşturuyor",
 		"when": "Dinlediğiniz zamanlar",
-		"on_device": "Bu cihazda, Limusic'te dinlediklerinizden hesaplanır. Herhangi bir yere bir şey gönderilmez."
+		"on_device": "Bu cihazda, Vibratunes'te dinlediklerinizden hesaplanır. Herhangi bir yere bir şey gönderilmez."
 	},
 	"columns": {
 		"title": "Başlık",
@@ -1397,7 +1397,7 @@
 			"runtime_linux": "ONNX Runtime (resmi Github sürümü) ve ONNX Runtime WebGPU eklentisi (files.pythonhosted.org sitesinden) de indirilir.",
 			"credit": "Ultimate Vocal Remover'dan UVR-MDX-NET-Inst_HQ_3, UVR-MDX-NET-Inst_Main ve UVR_MDXNET_3_9662; Anjok07 ve aufr33 tarafından MIT Lisansıyla geliştirildi.",
 			"credit_link": "Ultimate Vocal Remover",
-			"redownload": "Bir şarkıyı hazırlamak için Limusic, şarkının ses dosyasını yeniden indirir.",
+			"redownload": "Bir şarkıyı hazırlamak için Vibratunes, şarkının ses dosyasını yeniden indirir.",
 			"directml": "Bir grafik kartında karaoke, Microsoft DirectML aracılığıyla çalışır ve bu, kullanım verilerini Microsoft’a gönderebilir."
 		},
 		"button": {
@@ -1425,7 +1425,7 @@
 		},
 		"setup": {
 			"title": "Karaoke kurulumu",
-			"desc": "Limusic, şarkılardaki vokalleri doğrudan bu bilgisayarda çıkarır. İndirmek için bir kalite seçin, daha sonra bunu değiştirebilirsiniz.",
+			"desc": "Vibratunes, şarkılardaki vokalleri doğrudan bu bilgisayarda çıkarır. İndirmek için bir kalite seçin, daha sonra bunu değiştirebilirsiniz.",
 			"local": "Şarkılar bu bilgisayarda hazırlanır ve hiçbirşey dışarıya yüklenmez.",
 			"download": "İndir {size}",
 			"downloaded": "İndirildi",
@@ -1433,7 +1433,7 @@
 		},
 		"unavailable": {
 			"load_failed": "Karaoke bu bilgisayarda başlatılamıyor.",
-			"stopped": "Karaoke beklenmedik şekilde durdu. Tekrar kullanmak için Limusic'i yeniden başlatın."
+			"stopped": "Karaoke beklenmedik şekilde durdu. Tekrar kullanmak için Vibratunes'i yeniden başlatın."
 		},
 		"download_error": {
 			"failed": "İndirme başarısız. Tekrar deneyin."

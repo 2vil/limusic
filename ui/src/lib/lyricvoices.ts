@@ -1,5 +1,5 @@
-// Singers and background vocals as the lyrics view lays them out: `agent` on a line (Limusic's
-// lyrics only), `bg` on a word (Limusic's, and Apple's through Boidu, LyricsPlus and Unison). Pure,
+// Singers and background vocals as the lyrics view lays them out: `agent` on a line (Vibratunes's
+// lyrics only), `bg` on a word (Vibratunes's, and Apple's through Boidu, LyricsPlus and Unison). Pure,
 // so `lyricvoices.check.ts` can run it.
 import type { LyricLine, LyricWord } from './api';
 

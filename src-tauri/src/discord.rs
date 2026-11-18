@@ -49,7 +49,7 @@ use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 use innertube::SongItem;
 
 /// Discord application id (a snowflake — digits only). **Must be set before rich presence does
-/// anything.** Register an app named "Limusic" at <https://discord.com/developers/applications> and
+/// anything.** Register an app named "Vibratunes" at <https://discord.com/developers/applications> and
 /// paste its Application ID here — the app's *name* is what renders after "Listening to", and its
 /// icon is the fallback artwork. Nothing else in the portal needs configuring: no bot user, no
 /// OAuth redirect, no client secret. (Metrolist needs all of that only because Android has no
@@ -113,7 +113,7 @@ const MAX_BUTTON_URL: usize = 512;
 /// than another row in `UI_SETTINGS`. Every field is a string the UI also understands, because the
 /// settings tab renders a live preview of this exact card and the two have to agree.
 ///
-/// Unknown or missing fields fall back to [`Default`], which reproduces the card Limusic showed
+/// Unknown or missing fields fall back to [`Default`], which reproduces the card Vibratunes showed
 /// before any of this was configurable, with one deliberate exception: [`Self::badge`] is on, so an
 /// existing install that never opens the tab gains the corner icon the way Spotify's and Apple
 /// Music's cards have one.
@@ -122,7 +122,7 @@ const MAX_BUTTON_URL: usize = 512;
 pub struct RpcConfig {
     /// Which slot Discord renders after "Listening to": `app` | `line1` | `line2`.
     status_line: String,
-    /// Replaces the registered application name in that slot. Empty keeps "Limusic".
+    /// Replaces the registered application name in that slot. Empty keeps "Vibratunes".
     app_name: String,
     /// What the card's first line (`details`) carries: `title` | `artist` | `album`.
     line1: String,
@@ -143,7 +143,7 @@ pub struct RpcConfig {
     /// Show the elapsed/remaining progress bar. Ignored while paused: Discord has no paused state,
     /// so a bar left on a paused card keeps advancing and lies.
     timestamps: bool,
-    /// Draw the Limusic badge in the corner of the artwork. Needs [`Self::cover`]: Discord renders
+    /// Draw the Vibratunes badge in the corner of the artwork. Needs [`Self::cover`]: Discord renders
     /// `small_image` as a badge *over* the large one, and on its own it would become the artwork.
     badge: bool,
     /// Keep the card up while paused. Gated on playback having started at least once this session,
@@ -641,7 +641,7 @@ impl Presence {
 
         // "Hide details": the whole point is that nothing about the track leaves this machine, so
         // it short-circuits before any of it is attached. What friends see is the bare
-        // "Listening to Limusic" line, which is the only slot left to display.
+        // "Listening to Vibratunes" line, which is the only slot left to display.
         if cfg.hide_details {
             act = act.status_display_type(activity::StatusDisplayType::Name);
         } else {
@@ -693,7 +693,7 @@ impl Presence {
                 // Only ever alongside the artwork: `small_image` on its own is not a badge, it becomes
                 // the card's image.
                 if cfg.badge {
-                    let name = if cfg.app_name.is_empty() { "Limusic" } else { &cfg.app_name };
+                    let name = if cfg.app_name.is_empty() { "Vibratunes" } else { &cfg.app_name };
                     assets = assets.small_image(BADGE_URL).small_text(field(name));
                 }
                 act = act.assets(assets);
@@ -858,7 +858,7 @@ fn button_for(kind: &str, t: &Track) -> Option<activity::Button<'static>> {
         "listen" => ("Listen on YouTube Music", link_for("title", t)?),
         "album" => ("View album", link_for("album", t)?),
         "artist" => ("View artist", link_for("artist", t)?),
-        "app" => ("Get Limusic", REPO_URL.to_owned()),
+        "app" => ("Get Vibratunes", REPO_URL.to_owned()),
         _ => return None,
     };
     (url.len() <= MAX_BUTTON_URL).then(|| activity::Button::new(label, url))

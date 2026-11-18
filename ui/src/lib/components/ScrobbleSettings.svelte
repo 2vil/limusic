@@ -19,7 +19,7 @@
 		MusicNote01Icon,
 		PencilEdit02Icon
 	} from '@hugeicons/core-free-icons';
-	import LimusicLoader from './LimusicLoader.svelte';
+	import VibratunesLoader from './VibratunesLoader.svelte';
 	import LogoMark from './LogoMark.svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -520,7 +520,7 @@
 								onclick={connectLb}
 							>
 								{#if listenbrainz.connecting}
-									<LimusicLoader class="size-4 text-current" />
+									<VibratunesLoader class="size-4 text-current" />
 								{:else}
 									{t('settings.scrobbling.connect')}
 								{/if}
@@ -886,7 +886,7 @@
 								<div class="truncate text-xs text-muted-foreground">{preview.album}</div>
 							{/if}
 						{:else}
-							<LimusicLoader class="size-5" />
+							<VibratunesLoader class="size-5" />
 						{/if}
 					</div>
 				</div>
@@ -925,7 +925,7 @@
 	{:else if lastfm.connecting}
 		<!-- Cancels the browser authorization, same as a second click on the titlebar button. -->
 		<Button variant="ghost" size="sm" class="gap-1.5" onclick={disconnectLastfm}>
-			<LimusicLoader class="size-4" />
+			<VibratunesLoader class="size-4" />
 			{t('common.cancel')}
 		</Button>
 	{:else}

@@ -14,7 +14,7 @@
 		ArrowTurnBackwardIcon
 	} from '@hugeicons/core-free-icons';
 	import LogoMark from './LogoMark.svelte';
-	import LimusicLoader from './LimusicLoader.svelte';
+	import VibratunesLoader from './VibratunesLoader.svelte';
 	import SectionHeading from './SectionHeading.svelte';
 	import { ON_REPEAT_ID } from '$lib/api';
 	import type { BrowseItem } from '$lib/api';
@@ -129,7 +129,7 @@
 						}}
 					>
 						{#if busy === item.id}
-							<LimusicLoader class="size-5 text-primary-foreground" />
+							<VibratunesLoader class="size-5 text-primary-foreground" />
 						{:else}
 							<HugeiconsIcon icon={PlayIcon} class="h-3.5 w-3.5" />
 						{/if}

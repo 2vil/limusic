@@ -26,7 +26,7 @@
 		ListRestartIcon
 	} from '@hugeicons/core-free-icons';
 	import LogoMark from './LogoMark.svelte';
-	import LimusicLoader from './LimusicLoader.svelte';
+	import VibratunesLoader from './VibratunesLoader.svelte';
 	import SectionHeading from './SectionHeading.svelte';
 	import ShortcutPicker from './ShortcutPicker.svelte';
 	import { ON_REPEAT_ID } from '$lib/api';
@@ -219,7 +219,7 @@
 										}}
 									>
 										{#if busy === item.id}
-											<LimusicLoader class="size-7 text-white" />
+											<VibratunesLoader class="size-7 text-white" />
 										{:else}
 											<HugeiconsIcon icon={PlayIcon} class="h-5 w-5" />
 										{/if}

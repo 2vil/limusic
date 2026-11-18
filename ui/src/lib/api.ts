@@ -627,7 +627,7 @@ export const openExternal = (url: string) => invoke<void>('open_external', { url
 /** Real quit (not close-to-tray). Same path as the tray's Quit item. */
 export const quitApp = () => invoke<void>('quit_app');
 
-/** Environment + the redacted tail of `limusic.log`, for pasting into a bug report. */
+/** Environment + the redacted tail of `vibratunes.log`, for pasting into a bug report. */
 export const diagnostics = () => invoke<string>('diagnostics');
 /** Just the environment block, for prefilling the GitHub bug form. */
 export const diagnosticsSummary = () => invoke<string>('diagnostics_summary');
@@ -1292,11 +1292,11 @@ export interface Lyrics {
 	pinned: boolean;
 	/** Timing nudge in ms, positive = lyrics later. */
 	offset_ms: number;
-	/** Limusic's revision of the lyric. Absent from every other source. */
+	/** Vibratunes's revision of the lyric. Absent from every other source. */
 	revision?: number;
-	/** Who synced a community lyric on Limusic, oldest first. Absent everywhere else. */
+	/** Who synced a community lyric on Vibratunes, oldest first. Absent everywhere else. */
 	authors?: string[];
-	/** The provider Limusic mirrored the lyric from ("Boidu"). Absent everywhere else. */
+	/** The provider Vibratunes mirrored the lyric from ("Boidu"). Absent everywhere else. */
 	via?: string;
 }
 // A type, not an interface: `invoke` takes a record, and only a type alias is assignable to one.
@@ -1352,8 +1352,8 @@ export const lyricsWordReadings = (lines: string[][]) =>
 /** `lyrics` with the romanization the player would add, timed by the words where it can be: the
  *  lyric editor's preview. */
 export const lyricsRomanize = (lyrics: Lyrics) => invoke<Lyrics>('lyrics_romanize', { lyrics });
-// --- Limusic Lyrics account (`limusic.rs`) ---
-export interface LimusicAccount {
+// --- Vibratunes Lyrics account (`limusic.rs`) ---
+export interface VibratunesAccount {
 	/** Null while the account is anonymous: it has no public name. */
 	handle: string | null;
 	anonymous: boolean;
@@ -1364,7 +1364,7 @@ export interface LimusicAccount {
 	trusted: boolean;
 	can_review: boolean;
 }
-export interface LimusicAccountState {
+export interface VibratunesAccountState {
 	/** There is a session: an anonymous one counts. */
 	signed_in: boolean;
 	handle: string | null;
@@ -1373,30 +1373,30 @@ export interface LimusicAccountState {
 	/** A code (`expired`, `banned`, `failed`, `session_ended`) when a sign-in or a session ended badly. */
 	error?: string | null;
 }
-export interface LimusicProviders {
+export interface VibratunesProviders {
 	/** The identities that can be linked. May be empty. */
 	providers: string[];
 	/** The service has anonymous accounts: the gate for contributing at all. False for an older
 	 *  service, a 404 or no connection. */
 	anonymous: boolean;
 }
-export const limusicProviders = () => invoke<LimusicProviders>('limusic_providers');
-export const limusicStatus = () => invoke<LimusicAccountState>('limusic_status');
+export const limusicProviders = () => invoke<VibratunesProviders>('limusic_providers');
+export const limusicStatus = () => invoke<VibratunesAccountState>('limusic_status');
 /** Opens the browser; resolves with the code to compare with the confirm page. With an anonymous
  *  session the identity is linked to it, with none a linked account is made. The outcome arrives
- *  through `onLimusicAccount`. Rejects with a code (`rate_limited`, `unavailable`, ...). */
+ *  through `onVibratunesAccount`. Rejects with a code (`rate_limited`, `unavailable`, ...). */
 export const limusicSignIn = (provider: string) => invoke<string>('limusic_sign_in', { provider });
 export const limusicCancel = () => invoke<void>('limusic_cancel');
 export const limusicSignOut = () => invoke<void>('limusic_sign_out');
-export const limusicMe = () => invoke<LimusicAccount | null>('limusic_me');
+export const limusicMe = () => invoke<VibratunesAccount | null>('limusic_me');
 /** Rejects with the service's code: `taken`, `invalid`, `rate_limited`, `unauthorized`. */
-export const limusicRename = (handle: string) => invoke<LimusicAccount>('limusic_rename', { handle });
-/** A cached lyric was replaced behind the one on screen (a newer Limusic revision, or Limusic has
+export const limusicRename = (handle: string) => invoke<VibratunesAccount>('limusic_rename', { handle });
+/** A cached lyric was replaced behind the one on screen (a newer Vibratunes revision, or Vibratunes has
  *  the song now, or its lyric was taken down). The payload is the video id: ask again. */
 export const onLyricsUpdated = (cb: (videoId: string) => void): Promise<UnlistenFn> =>
 	listen<string>('lyrics-updated', (e) => cb(e.payload));
-/** The lyric Limusic has live for a song: its votes, mine, and whether it is my own work. */
-export interface LimusicLyricState {
+/** The lyric Vibratunes has live for a song: its votes, mine, and whether it is my own work. */
+export interface VibratunesLyricState {
 	revision: number;
 	up: number;
 	down: number;
@@ -1405,18 +1405,18 @@ export interface LimusicLyricState {
 }
 /** `null` when the song has no live lyric. Rejects with a code when the service can't say. */
 export const limusicLyricState = (videoId: string) =>
-	invoke<LimusicLyricState | null>('limusic_lyric_state', { videoId });
+	invoke<VibratunesLyricState | null>('limusic_lyric_state', { videoId });
 /** 1, -1, or 0 to take the vote back. The first one makes an anonymous account, silently.
  *  Rejects with the service's code: `own`, `not_found`, `rate_limited`, `banned`, `unavailable`. */
 export const limusicVote = (videoId: string, value: -1 | 0 | 1) =>
-	invoke<Pick<LimusicLyricState, 'up' | 'down' | 'my_vote'>>('limusic_vote', { videoId, value });
-export type LimusicReportReason = 'wrong_song' | 'timing' | 'text' | 'abuse';
+	invoke<Pick<VibratunesLyricState, 'up' | 'down' | 'my_vote'>>('limusic_vote', { videoId, value });
+export type VibratunesReportReason = 'wrong_song' | 'timing' | 'text' | 'abuse';
 /** Rejects with the service's code, as a vote does. */
-export const limusicReport = (videoId: string, reason: LimusicReportReason, note?: string) =>
+export const limusicReport = (videoId: string, reason: VibratunesReportReason, note?: string) =>
 	invoke<void>('limusic_report', { videoId, reason, note: note || null });
-export const onLimusicAccount = (cb: (s: LimusicAccountState) => void): Promise<UnlistenFn> =>
-	listen<LimusicAccountState>('limusic-account', (e) => cb(e.payload));
-export interface LimusicSubmission {
+export const onVibratunesAccount = (cb: (s: VibratunesAccountState) => void): Promise<UnlistenFn> =>
+	listen<VibratunesAccountState>('vibratunes-account', (e) => cb(e.payload));
+export interface VibratunesSubmission {
 	video_id: string;
 	lines: LyricLine[];
 	title: string;
@@ -1425,19 +1425,19 @@ export interface LimusicSubmission {
 	duration?: number;
 	base_revision: number | null;
 }
-export type LimusicSubmitted =
+export type VibratunesSubmitted =
 	| { kind: 'published'; revision: number }
 	| { kind: 'pending'; revision: number }
 	| { kind: 'failed'; code: string; detail: string | null };
-export const limusicSubmit = (submission: LimusicSubmission) =>
-	invoke<LimusicSubmitted>('limusic_submit', { submission });
+export const limusicSubmit = (submission: VibratunesSubmission) =>
+	invoke<VibratunesSubmitted>('limusic_submit', { submission });
 /** The song's live revision on the service now, null when it has no live lyric. Rejects when the
  *  service can't be asked. */
 export const limusicLiveRevision = (videoId: string) =>
 	invoke<number | null>('limusic_live_revision', { videoId });
 // Review (reviewers only). Every call rejects with the service's code: `forbidden`,
 // `unauthorized`, `not_found`, `not_reviewable`, `stale`, `rate_limited`, `unavailable`.
-export interface LimusicQueueItem {
+export interface VibratunesQueueItem {
 	revision: number;
 	video_id: string;
 	title: string;
@@ -1450,12 +1450,12 @@ export interface LimusicQueueItem {
 	created_at: number;
 	reports: number;
 }
-export interface LimusicQueue {
-	items: LimusicQueueItem[];
+export interface VibratunesQueue {
+	items: VibratunesQueueItem[];
 	/** Pass as `after` for the next page, null on the last. */
 	next: number | null;
 }
-export interface LimusicRevision {
+export interface VibratunesRevision {
 	revision: number;
 	video_id: string;
 	status: string;
@@ -1473,9 +1473,9 @@ export interface LimusicRevision {
 }
 /** Oldest first, 50 a page. */
 export const limusicReviewQueue = (after?: number) =>
-	invoke<LimusicQueue>('limusic_review_queue', { after: after ?? null });
+	invoke<VibratunesQueue>('limusic_review_queue', { after: after ?? null });
 export const limusicReviewRevision = (revision: number) =>
-	invoke<LimusicRevision>('limusic_review_revision', { revision });
+	invoke<VibratunesRevision>('limusic_review_revision', { revision });
 /** The song's live community lyric from the service itself (never a lyrics provider), or null. */
 export const limusicLiveLyrics = (videoId: string) =>
 	invoke<Lyrics | null>('limusic_live_lyrics', { videoId });

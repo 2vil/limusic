@@ -5,7 +5,7 @@
 	import { HugeiconsIcon } from '@hugeicons/svelte';
 	import { PlayIcon } from '@hugeicons/core-free-icons';
 	import LogoMark from './LogoMark.svelte';
-	import LimusicLoader from './LimusicLoader.svelte';
+	import VibratunesLoader from './VibratunesLoader.svelte';
 	import type { BrowseItem } from '$lib/api';
 	import { asSong, openItem, playItem } from '$lib/browse';
 	import { openAddToPlaylist, playSong, playback, startRadio } from '$lib/player.svelte';
@@ -129,7 +129,7 @@
 			onclick={play}
 		>
 			{#if busy}
-				<LimusicLoader class="size-8 text-primary-foreground" />
+				<VibratunesLoader class="size-8 text-primary-foreground" />
 			{:else}
 				<HugeiconsIcon icon={PlayIcon} class="h-5 w-5" />
 			{/if}

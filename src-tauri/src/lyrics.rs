@@ -3,7 +3,7 @@
 //! Every provider sits in one list the user orders and switches off in Settings (`lyrics_providers`,
 //! read by `provider_order`). A fresh install asks them in `PROVIDERS` order:
 //!
-//! 0. **Limusic** (`lyrics.limusic.app`, our own): word-timed lyrics filed by video id. It fills
+//! 0. **Vibratunes** (`lyrics.limusic.app`, our own): word-timed lyrics filed by video id. It fills
 //!    itself from Boidu, Unison and LyricsPlus (`send_hint`), so it answers for those songs first.
 //! 1. **Boidu** (`lyrics-api.boidu.dev`, the Better Lyrics API): Apple's TTML with word timings,
 //!    only for songs its cache already holds.
@@ -23,8 +23,8 @@
 //! the same way, at the cost of waiting on every provider for a song nobody has word-timed.
 //!
 //! Results are cached in SQLite (`lyrics_cache`): hits forever, "no lyrics" verdicts for 24h.
-//! A cached hit is shown as it is and brought up to date behind it (`refresh_stale`): Limusic's
-//! own lyric is checked for a newer revision once a day, any other one asks Limusic once a week
+//! A cached hit is shown as it is and brought up to date behind it (`refresh_stale`): Vibratunes's
+//! own lyric is checked for a newer revision once a day, any other one asks Vibratunes once a week
 //! whether it has the song by now.
 //! A run where every provider merely *errored* (offline) caches nothing, so lyrics come back
 //! when the network does. A song's source picked by hand in the lyrics footer (`choose_source`),
@@ -45,11 +45,11 @@ use crate::state::AppState;
 /// How long a cached "no lyrics found" verdict suppresses refetching.
 const MISS_TTL_SECS: i64 = 24 * 3600;
 
-/// How old a cached Limusic lyric gets before its revision is looked at again: an edit approved
+/// How old a cached Vibratunes lyric gets before its revision is looked at again: an edit approved
 /// since should reach the people who already have the song.
 const RECHECK_LIMUSIC_SECS: i64 = 24 * 3600;
 
-/// How old any other cached lyric gets before Limusic is asked whether it has the song by now.
+/// How old any other cached lyric gets before Vibratunes is asked whether it has the song by now.
 const RECHECK_OTHER_SECS: i64 = 7 * 24 * 3600;
 
 /// How far apart `fetch` starts the providers. A first answer takes ~0.4-0.7s (timed 2026-10-16),
@@ -71,7 +71,7 @@ pub const PROVIDERS: [&str; 9] =
 /// The attribution a provider's lyrics carry (`Lyrics::source`), also its name in Settings.
 pub fn provider_name(id: &str) -> &'static str {
     match id {
-        "limusic" => "Limusic",
+        "limusic" => "Vibratunes",
         "boidu" => "Boidu",
         "unison" => "Unison",
         "lyricsplus" => "LyricsPlus",
@@ -87,7 +87,7 @@ pub fn provider_name(id: &str) -> &'static str {
 /// The `lyrics_providers` setting as `(id, on)` in the user's order: ids top to bottom, `-id` for
 /// one switched off. Whatever it doesn't name (all of them on a fresh install, or a provider a
 /// later release adds) follows in the default order, switched on, unless every source it names is
-/// off: someone who wanted no lyrics doesn't get a new provider asked behind their back. Limusic
+/// off: someone who wanted no lyrics doesn't get a new provider asked behind their back. Vibratunes
 /// is the exception to "follows": a saved order that doesn't name it gets it first, where it
 /// belongs, since it answers for the songs the sources below it would. Named, it stays put.
 pub fn provider_order(setting: Option<&str>) -> Vec<(&'static str, bool)> {
@@ -130,7 +130,7 @@ pub struct LyricWord {
     pub text: String,
     pub start_ms: u64,
     pub end_ms: u64,
-    /// Background vocals: Limusic's `bg`, Apple's `x-bg` (TTML) and `isBackground` (KPOE). The
+    /// Background vocals: Vibratunes's `bg`, Apple's `x-bg` (TTML) and `isBackground` (KPOE). The
     /// lyrics view draws them smaller, under the lead.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub bg: bool,
@@ -157,7 +157,7 @@ pub struct LyricLine {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub romanized_words: Option<Vec<LyricWord>>,
     /// Which singer the line belongs to: `v1`, `v2`, ... and `v1000` for everyone together. Only
-    /// Limusic Lyrics sends it; the lyrics view puts a second singer on the opposite side.
+    /// Vibratunes Lyrics sends it; the lyrics view puts a second singer on the opposite side.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent: Option<String>,
 }
@@ -186,16 +186,16 @@ pub struct Lyrics {
     /// Timing nudge for this song in ms, positive = lyrics later.
     #[serde(default)]
     pub offset_ms: i64,
-    /// Limusic's revision of the lyric, which is what `refresh_stale` asks about. `None` from any
+    /// Vibratunes's revision of the lyric, which is what `refresh_stale` asks about. `None` from any
     /// other source, and in a row cached before it was kept.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision: Option<i64>,
-    /// Who synced a community lyric on Limusic, oldest first, for the footer's credit. Empty for
+    /// Who synced a community lyric on Vibratunes, oldest first, for the footer's credit. Empty for
     /// everything else, an anonymous contributor's lyric included.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authors: Vec<String>,
-    /// The provider Limusic mirrored the lyric from ("Boidu"), named in the source picker while
-    /// the footer says Limusic alone. `None` from every other source.
+    /// The provider Vibratunes mirrored the lyric from ("Boidu"), named in the source picker while
+    /// the footer says Vibratunes alone. `None` from every other source.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub via: Option<String>,
 }
@@ -350,16 +350,16 @@ async fn cached_or_fetched(state: &AppState, req: LyricsRequest) -> Option<Lyric
 /// What a cached lyric is due.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Recheck {
-    /// Limusic's own lyric: has its revision moved?
+    /// Vibratunes's own lyric: has its revision moved?
     Revision,
-    /// Another source's lyric: does Limusic have the song by now?
+    /// Another source's lyric: does Vibratunes have the song by now?
     Ask,
 }
 
-/// Whether a cached lyric of this age is due a look at Limusic. Never a pinned one (picked by
-/// hand or nudged: the user's, not a cache), and never with the Limusic source switched off.
-/// Another source's lyric asks only where a fresh walk down the list would pick Limusic's
-/// word-timed answer over it: Limusic sits above that source, or the lyric is one `fetch` would
+/// Whether a cached lyric of this age is due a look at Vibratunes. Never a pinned one (picked by
+/// hand or nudged: the user's, not a cache), and never with the Vibratunes source switched off.
+/// Another source's lyric asks only where a fresh walk down the list would pick Vibratunes's
+/// word-timed answer over it: Vibratunes sits above that source, or the lyric is one `fetch` would
 /// not have stopped at.
 fn recheck_due(
     l: &Lyrics,
@@ -380,7 +380,7 @@ fn recheck_due(
 }
 
 /// Bring a cached lyric up to date behind the answer that just went to the screen: one request
-/// to Limusic, in the background, and `lyrics-updated` when what it holds differs.
+/// to Vibratunes, in the background, and `lyrics-updated` when what it holds differs.
 fn refresh_stale(state: &AppState, req: &LyricsRequest, cached: &Lyrics, age_secs: i64) {
     if req.searched || !limusic_has_ids_like(&req.video_id) {
         return;
@@ -397,7 +397,7 @@ fn refresh_stale(state: &AppState, req: &LyricsRequest, cached: &Lyrics, age_sec
         let known = old.revision.filter(|_| kind == Recheck::Revision);
         let answer = limusic_fetch(&id, known).await.map_err(|e| e.to_string());
         if let Err(e) = &answer {
-            tracing::debug!(error = %e, "lyrics: Limusic recheck failed");
+            tracing::debug!(error = %e, "lyrics: Vibratunes recheck failed");
         }
         let state = app.state::<Arc<AppState>>();
         if apply_recheck(&state.db, &id, kind, &old, answer, now_secs()) {
@@ -427,14 +427,14 @@ fn apply_recheck(
     }
     match answer {
         Err(_) => {
-            // Offline is not "Limusic doesn't have it": a week is too long to wait on that.
+            // Offline is not "Vibratunes doesn't have it": a week is too long to wait on that.
             if kind == Recheck::Ask {
                 db.touch_lyrics(video_id, now - RECHECK_OTHER_SECS + RECHECK_LIMUSIC_SECS);
             }
             false
         }
         Ok(Fresh::Same) => false,
-        // A reviewer took Limusic's lyric down: the next look walks the list again.
+        // A reviewer took Vibratunes's lyric down: the next look walks the list again.
         Ok(Fresh::Gone) if kind == Recheck::Revision => {
             db.delete_lyrics(video_id);
             true
@@ -612,9 +612,9 @@ async fn fetch(state: &AppState, mut req: LyricsRequest) -> (Option<Lyrics>, boo
     }
 }
 
-/// The switched-on providers with the `STAGGER` slot each starts in. Limusic takes none: the source
-/// after it starts alongside it, or every song Limusic doesn't hold yet would reach the others
-/// 300 ms later than it did before Limusic was first in the list.
+/// The switched-on providers with the `STAGGER` slot each starts in. Vibratunes takes none: the source
+/// after it starts alongside it, or every song Vibratunes doesn't hold yet would reach the others
+/// 300 ms later than it did before Vibratunes was first in the list.
 fn start_slots(order: Vec<(&'static str, bool)>) -> Vec<(&'static str, u32)> {
     let mut slot = 0;
     order
@@ -1051,13 +1051,13 @@ async fn boidu_get(req: &LyricsRequest) -> Result<Option<Lyrics>, reqwest::Error
     Ok(hit)
 }
 
-/// Limusic Lyrics (`lyrics.limusic.app`): our own word-timed lyrics, filed by video id. `origin`
+/// Vibratunes Lyrics (`lyrics.limusic.app`): our own word-timed lyrics, filed by video id. `origin`
 /// says where a lyric came from; the ones mirrored from another provider keep its name in `via`,
 /// shown in the source picker, since Unison's licence (ODbL) asks for attribution. Its lines carry
 /// the singer (`agent`) and background vocals (`bg`), which the lyrics view draws (`lyricvoices.ts`).
 const LIMUSIC_URL: &str = "https://lyrics.limusic.app";
 
-/// Answers are read in the user's order, so while Limusic is first a stalled request holds back
+/// Answers are read in the user's order, so while Vibratunes is first a stalled request holds back
 /// lyrics another source already has. A hit or a miss comes off Cloudflare's edge in well under a
 /// second; past this the walk moves on, which costs nothing but this one answer.
 const LIMUSIC_TIMEOUT: Duration = Duration::from_secs(2);
@@ -1068,7 +1068,7 @@ pub(crate) fn limusic_root() -> String {
 }
 
 #[derive(Debug, Default, Deserialize)]
-pub(crate) struct LimusicAnswer {
+pub(crate) struct VibratunesAnswer {
     /// Kept a string: a value a newer server adds must not fail the parse.
     #[serde(default)]
     pub origin: String,
@@ -1080,7 +1080,7 @@ pub(crate) struct LimusicAnswer {
     pub lines: Vec<LyricLine>,
 }
 
-/// What Limusic says about a song.
+/// What Vibratunes says about a song.
 #[derive(Debug)]
 enum Fresh {
     /// Still the revision that was named (a 304).
@@ -1123,23 +1123,23 @@ async fn limusic_fetch(id: &str, known: Option<i64>) -> Result<Fresh, reqwest::E
         reqwest::StatusCode::NOT_FOUND => Ok(Fresh::Gone),
         reqwest::StatusCode::NOT_MODIFIED => Ok(Fresh::Same),
         _ => {
-            let answer: LimusicAnswer = resp.error_for_status()?.json().await?;
+            let answer: VibratunesAnswer = resp.error_for_status()?.json().await?;
             Ok(limusic_to_lyrics(answer).map_or(Fresh::Gone, Fresh::New))
         }
     }
 }
 
-pub(crate) fn limusic_to_lyrics(a: LimusicAnswer) -> Option<Lyrics> {
+pub(crate) fn limusic_to_lyrics(a: VibratunesAnswer) -> Option<Lyrics> {
     let via = matches!(a.origin.as_str(), "unison" | "boidu" | "lyricsplus")
         .then(|| provider_name(&a.origin).to_string());
     // The service sends five at most; no more than that is ever kept or shown.
     let authors = a.authors.into_iter().filter(|h| !h.trim().is_empty()).take(5).collect();
-    Some(Lyrics { revision: a.revision, authors, via, ..from_parsed("Limusic", a.lines)? })
+    Some(Lyrics { revision: a.revision, authors, via, ..from_parsed("Vibratunes", a.lines)? })
 }
 
-/// Whether to tell Limusic about lyrics we just got from a provider it mirrors. Word-timed only,
+/// Whether to tell Vibratunes about lyrics we just got from a provider it mirrors. Word-timed only,
 /// which is all it stores; never for a search (not the video's own lyrics) or a local file; and
-/// not when the user has switched the Limusic source off, which is the off switch.
+/// not when the user has switched the Vibratunes source off, which is the off switch.
 fn hint_due(l: &Lyrics, limusic_on: bool, req: &LyricsRequest) -> bool {
     matches!(l.provider.as_str(), "boidu" | "unison" | "lyricsplus")
         && word_timed(l)
@@ -1178,7 +1178,7 @@ fn send_hint(state: &AppState, req: &LyricsRequest, l: &Lyrics) {
             .send()
             .await;
         if let Err(e) = sent {
-            tracing::debug!(error = %e, "lyrics: Limusic hint failed");
+            tracing::debug!(error = %e, "lyrics: Vibratunes hint failed");
         }
     });
 }
@@ -2207,7 +2207,7 @@ mod tests {
             ids(provider_order(Some("lrclib, -boidu,gone,lrclib"))),
             "limusic,lrclib,-boidu,unison,lyricsplus,youtube,netease,qq,kugou"
         );
-        // Named, Limusic stays where the user put it, on or off.
+        // Named, Vibratunes stays where the user put it, on or off.
         assert_eq!(
             ids(provider_order(Some("lrclib,limusic,boidu"))),
             "lrclib,limusic,boidu,unison,lyricsplus,youtube,netease,qq,kugou"
@@ -2216,7 +2216,7 @@ mod tests {
             ids(provider_order(Some("boidu,-limusic"))),
             "boidu,-limusic,unison,lyricsplus,lrclib,youtube,netease,qq,kugou"
         );
-        // Every source off stays every source off when a release adds one, Limusic included.
+        // Every source off stays every source off when a release adds one, Vibratunes included.
         assert_eq!(
             ids(provider_order(Some("-boidu,-lyricsplus,-lrclib,-youtube,-netease,-qq,-kugou"))),
             "-limusic,-boidu,-lyricsplus,-lrclib,-youtube,-netease,-qq,-kugou,-unison"
@@ -2237,12 +2237,12 @@ mod tests {
             )
         };
         let read = |origin: &str| {
-            let a = serde_json::from_str::<LimusicAnswer>(&json(origin)).unwrap();
+            let a = serde_json::from_str::<VibratunesAnswer>(&json(origin)).unwrap();
             limusic_to_lyrics(a).unwrap()
         };
         let l = read("community");
         assert!(l.synced);
-        assert_eq!(l.source, "Limusic");
+        assert_eq!(l.source, "Vibratunes");
         assert_eq!(l.lines.len(), 2);
         assert_eq!(l.lines[0].words.as_ref().unwrap()[1].end_ms, 2500);
         assert_eq!(l.lines[1].romanized.as_deref(), Some("oh"));
@@ -2251,13 +2251,13 @@ mod tests {
         assert!(!words[0].bg && words[1].bg);
         assert_eq!(l.via, None);
         let boidu = read("boidu");
-        assert_eq!((boidu.source.as_str(), boidu.via.as_deref()), ("Limusic", Some("Boidu")));
+        assert_eq!((boidu.source.as_str(), boidu.via.as_deref()), ("Vibratunes", Some("Boidu")));
         assert_eq!(read("unison").via.as_deref(), Some("Unison"));
         assert_eq!(read("lyricsplus").via.as_deref(), Some("LyricsPlus"));
         assert_eq!(read("something-new").via, None);
         assert_eq!(l.revision, Some(3));
         assert!(l.authors.is_empty(), "no authors in the answer, none kept");
-        let credited: LimusicAnswer = serde_json::from_str(
+        let credited: VibratunesAnswer = serde_json::from_str(
             r#"{"origin":"community","revision":4,"authors":["carla","","moss_fern","a","b","c","d"],
             "lines":[{"time_ms":1,"text":"x","words":[{"text":"x","start_ms":1,"end_ms":9}]}]}"#,
         )
@@ -2266,7 +2266,7 @@ mod tests {
         assert_eq!(l.authors, ["carla", "moss_fern", "a", "b", "c"], "five at most, no blanks");
         let json = serde_json::to_string(&l).unwrap();
         assert_eq!(serde_json::from_str::<Lyrics>(&json).unwrap().authors, l.authors, "cached");
-        let empty = LimusicAnswer { origin: "community".into(), ..Default::default() };
+        let empty = VibratunesAnswer { origin: "community".into(), ..Default::default() };
         assert!(limusic_to_lyrics(empty).is_none());
     }
 
@@ -2317,7 +2317,7 @@ mod tests {
         const DAY: i64 = 24 * 3600;
         let order = provider_order(None);
         let due = |l: &Lyrics, age| recheck_due(l, age, &order, false);
-        // Limusic's own: by revision, after a day.
+        // Vibratunes's own: by revision, after a day.
         let ours = cached("limusic", true);
         assert_eq!(due(&ours, DAY - 1), None);
         assert_eq!(due(&ours, DAY + 1), Some(Recheck::Revision));
@@ -2330,11 +2330,11 @@ mod tests {
             let pinned = Lyrics { pinned: true, ..cached(provider, true) };
             assert_eq!(due(&pinned, 400 * DAY), None, "{provider}");
         }
-        // The Limusic source switched off is the off switch for this too.
+        // The Vibratunes source switched off is the off switch for this too.
         let off = provider_order(Some("-limusic"));
         assert_eq!(recheck_due(&ours, 9 * DAY, &off, false), None);
         assert_eq!(recheck_due(&theirs, 9 * DAY, &off, false), None);
-        // Below a source whose synced lyric a fresh walk would stop at, Limusic can't win.
+        // Below a source whose synced lyric a fresh walk would stop at, Vibratunes can't win.
         let below = provider_order(Some("lrclib,limusic"));
         assert_eq!(recheck_due(&theirs, 9 * DAY, &below, false), None);
         // Unless that lyric is one the walk would not have stopped at: line-synced with word
@@ -2366,7 +2366,7 @@ mod tests {
                 LyricLine::simple(Some(7), "b".into()),
                 LyricLine::simple(Some(9), "c".into()),
             ],
-            ..cached("Limusic", true)
+            ..cached("Vibratunes", true)
         };
 
         // Unchanged (a 304), or no answer: the row stays as it is.
@@ -2512,7 +2512,7 @@ mod tests {
         assert!(!hint_due(&lyrics("lrclib", true), true, &plain));
         assert!(!hint_due(&lyrics("limusic", true), true, &plain), "its own answer");
         assert!(!hint_due(&lyrics("unison", false), true, &plain), "no words");
-        assert!(!hint_due(&lyrics("unison", true), false, &plain), "Limusic switched off");
+        assert!(!hint_due(&lyrics("unison", true), false, &plain), "Vibratunes switched off");
         assert!(!hint_due(&lyrics("unison", true), true, &req("FkxEE7wZ83c", true)), "search");
         let local = req(&format!("{}/music/a.flac", crate::local::SONG_PREFIX), false);
         assert!(!hint_due(&lyrics("unison", true), true, &local), "local file");

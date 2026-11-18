@@ -85,7 +85,7 @@
 		"history": "Historial",
 		"add_account": "Agregar cuenta",
 		"remove_account": "Quitar cuenta",
-		"remove_account_title": "¿Quitar de Limusic?",
+		"remove_account_title": "¿Quitar de Vibratunes?",
 		"remove_account_desc": "{name} solo se quita de la lista. La cuenta de Google en sí no se ve afectada y puedes iniciar sesión con esta cuando quieras.",
 		"saved_accounts_hint": "Elige una cuenta guardada para cambiar a esta.",
 		"no_channels": "YouTube no devolvió ningún canal seleccionable.",
@@ -336,9 +336,9 @@
 			"scrobbling": "Scrobbleo",
 			"scrobbling_hint": "Lo que el scrobbleo envía y lo que cuenta como reproducción.",
 			"devices": "Dispositivos",
-			"devices_hint": "Controla este dispositivo desde Limusic en tu celular.",
+			"devices_hint": "Controla este dispositivo desde Vibratunes en tu celular.",
 			"contributing": "Contribuir",
-			"contributing_hint": "Tu cuenta de Limusic Lyrics, y como agregar letras."
+			"contributing_hint": "Tu cuenta de Vibratunes Lyrics, y como agregar letras."
 		},
 		"sections": {
 			"language": "Idioma",
@@ -370,30 +370,30 @@
 			"language_hint": "Selecciona el idioma de visualización de la interfaz.",
 			"shortcuts_hint": "Abre los atajos de teclado con {key}",
 			"autostart": "Iniciar al arrancar",
-			"autostart_hint": "Iniciar automáticamente Limusic cuando se encienda el sistema.",
+			"autostart_hint": "Iniciar automáticamente Vibratunes cuando se encienda el sistema.",
 			"close_to_tray": "Minimizar a la bandeja del sistema",
-			"close_to_tray_hint": "Mantener Limusic ejecutándose en segundo plano al cerrar la ventana.",
+			"close_to_tray_hint": "Mantener Vibratunes ejecutándose en segundo plano al cerrar la ventana.",
 			"discord_rpc": "Presencia en Discord",
 			"discord_rpc_hint": "Mostrar la canción que se está reproduciendo en tu perfil de Discord.",
 			"update_banner": "Notificaciones de actualización",
-			"update_banner_hint": "Mostrar un banner cuando haya una nueva versión de Limusic disponible.",
+			"update_banner_hint": "Mostrar un banner cuando haya una nueva versión de Vibratunes disponible.",
 			"proxy": "Proxy HTTP/HTTPS",
 			"proxy_hint": "Enrutar todas las solicitudes de red a través de un servidor proxy personalizado.",
 			"proxy_placeholder": "http://host:puerto (vacío = ninguno)",
 			"stream_clients": "Clientes de streaming",
 			"stream_clients_hint": "Desactiva un cliente para omitirlo al resolver streams. Se sobreescribe con la variable de entorno {var}.",
 			"system_titlebar": "Usar la barra de título del sistema",
-			"system_titlebar_hint": "Deja que el sistema gestione el borde de la ventana y sus botones. Limusic mantendrá su propia barra de herramientas debajo.",
+			"system_titlebar_hint": "Deja que el sistema gestione el borde de la ventana y sus botones. Vibratunes mantendrá su propia barra de herramientas debajo.",
 			"language_search": "Buscar idiomas",
-			"language_contribute": "Ayuda a traducir Limusic",
+			"language_contribute": "Ayuda a traducir Vibratunes",
 			"track_notifications": "Notificaciones de canciones",
-			"track_notifications_hint": "Muestra una notificación cuando una nueva canción empieza mientras Limusic esta en segundo plano.",
+			"track_notifications_hint": "Muestra una notificación cuando una nueva canción empieza mientras Vibratunes esta en segundo plano.",
 			"start_minimized": "Iniciar en la bandeja al arrancar",
-			"start_minimized_hint": "Cuando Limusic inicia con tu sistema, se mantiene en la bandeja hasta que lo abres. Siempre se muestra la ventana al abrirlo tu mismo.",
-			"track_notifications_focused": "También al usar Limusic",
-			"track_notifications_focused_hint": "Mostrar una notificación cuando la siguiente pista comience sola con Limusic en primer plano. Las pistas que elijas manualmente nunca mostrarán notificación.",
+			"start_minimized_hint": "Cuando Vibratunes inicia con tu sistema, se mantiene en la bandeja hasta que lo abres. Siempre se muestra la ventana al abrirlo tu mismo.",
+			"track_notifications_focused": "También al usar Vibratunes",
+			"track_notifications_focused_hint": "Mostrar una notificación cuando la siguiente pista comience sola con Vibratunes en primer plano. Las pistas que elijas manualmente nunca mostrarán notificación.",
 			"play_on_start": "Reanudar la reproducción al abrir",
-			"play_on_start_hint": "Empieza a reproducir tu última cola cuando se abre Limusic."
+			"play_on_start_hint": "Empieza a reproducir tu última cola cuando se abre Vibratunes."
 		},
 		"themes": {
 			"interface_font": "Fuente de la interfaz",
@@ -447,7 +447,7 @@
 			"blur_playlist_header": "Desenfocar cabecera de playlist",
 			"blur_playlist_header_hint": "Muestra la portada de la playlist desenfocada detrás de la cabecera. Suaviza las portadas que se ven pixeladas al estirarse a todo lo ancho.",
 			"matugen": "Paleta del fondo de pantalla",
-			"matugen_hint": "Toma todos los colores, incluido el de acento, de la paleta que Matugen, wallust o pywal generan a partir de tu fondo de pantalla. Configura primero la plantilla de Limusic en esa herramienta.",
+			"matugen_hint": "Toma todos los colores, incluido el de acento, de la paleta que Matugen, wallust o pywal generan a partir de tu fondo de pantalla. Configura primero la plantilla de Vibratunes en esa herramienta.",
 			"classic_player": "Diseño clásico del reproductor",
 			"classic_player_hint": "El diseño original del reproductor: La carátula sola sobre una copia desenfocada de la misma, con los detalles de la canción a la izquierda del barra de reproducción. Desactivado usa el nuevo diseño, con el título, artista y álbum debajo de la carátula e iluminado con los colores de esta.",
 			"now_playing_pill": "Botón de reproduciendo ahora",
@@ -569,7 +569,7 @@
 			"update_check_failed": "Falló la búsqueda de actualizaciones: {error}",
 			"update_packaged": "Esta instalación se realizó con un gestor de paquetes. Actualízala del mismo modo.",
 			"kofi": "Cómprame un café",
-			"kofi_hint": "Limusic es gratis y seguirá siendo gratis. Ko-fi está ahí por si quieres apoyar.",
+			"kofi_hint": "Vibratunes es gratis y seguirá siendo gratis. Ko-fi está ahí por si quieres apoyar.",
 			"kofi_button": "Abrir Ko-fi",
 			"rollback_available": "Esta versión se revertirá a {version}, la última versión estable conocida.",
 			"beta": "Versiones beta",
@@ -589,8 +589,8 @@
 			"status_line1": "Línea 1",
 			"status_line2": "Línea 2",
 			"app_name": "Nombre de la aplicación",
-			"app_name_hint": "Reemplaza “Limusic” siempre que aparezca el nombre de la aplicación. Déjalo vacío para mantenerlo.",
-			"app_name_placeholder": "Limusic",
+			"app_name_hint": "Reemplaza “Vibratunes” siempre que aparezca el nombre de la aplicación. Déjalo vacío para mantenerlo.",
+			"app_name_placeholder": "Vibratunes",
 			"line1": "Línea 1",
 			"line1_hint": "La línea en negrita, justo debajo del encabezado.",
 			"line2": "Línea 2",
@@ -603,7 +603,7 @@
 			"cover": "Carátula del álbum",
 			"cover_hint": "Muestra la carátula junto a la pista.",
 			"badge": "Insignia del proveedor",
-			"badge_hint": "Marca la carátula con un pequeño icono de Limusic, como hacen las tarjetas de Spotify y Apple Music.",
+			"badge_hint": "Marca la carátula con un pequeño icono de Vibratunes, como hacen las tarjetas de Spotify y Apple Music.",
 			"line3": "Línea 3",
 			"line3_hint": "La última línea. Discord también la usa como texto al pasar el cursor sobre la carátula, así que necesita la carátula activada.",
 			"timestamps": "Barra de progreso",
@@ -618,7 +618,7 @@
 			"button_listen": "Escuchar en YouTube Music",
 			"button_album": "Ver álbum",
 			"button_artist": "Ver artista",
-			"button_app": "Obtener Limusic",
+			"button_app": "Obtener Vibratunes",
 			"button_off": "Nada",
 			"preview": "Previsualización",
 			"preview_live": "Reproduciendo ahora",
@@ -631,7 +631,7 @@
 		},
 		"hotkeys": {
 			"title": "Atajos globales",
-			"description": "Controla la reproducción con atajos de teclado personalizables, incluso cuando Limusic está minimizado o ejecutándose en segundo plano.",
+			"description": "Controla la reproducción con atajos de teclado personalizables, incluso cuando Vibratunes está minimizado o ejecutándose en segundo plano.",
 			"enable": "Activar atajos globales",
 			"enable_hint": "Los atajos globales están desactivados. Actívalos para que respondan a atajos del sistema.",
 			"off": "Apagado",
@@ -666,11 +666,11 @@
 			"action_toggle_repeat": "Repetición",
 			"action_toggle_repeat_hint": "Modo de repetición: desactivado, todo, uno.",
 			"action_show_app": "Mostrar la aplicación",
-			"action_show_app_hint": "Muestra la ventana de Limusic en primer plano."
+			"action_show_app_hint": "Muestra la ventana de Vibratunes en primer plano."
 		},
 		"scrobbling": {
 			"account_disconnected": "Conecta tu cuenta de Last.fm para scrobblear lo que reproduces.",
-			"account_connecting": "Esperando a que apruebes a Limusic en tu navegador.",
+			"account_connecting": "Esperando a que apruebes a Vibratunes en tu navegador.",
 			"connect": "Conectar",
 			"open_profile": "Abrir tu perfil de Last.fm",
 			"since": "Scrobblear desde {date}",
@@ -753,10 +753,10 @@
 		"devices": {
 			"title": "Reproduce en donde sea",
 			"subtitle": "Tus dispositivos se controlan entre si, la música se mueve entre ellos.",
-			"intro": "Enlaza Limusic en tu celular: cada uno muestra y controla lo que el otro reproduce y la música se mueve al que tu elijas.",
+			"intro": "Enlaza Vibratunes en tu celular: cada uno muestra y controla lo que el otro reproduce y la música se mueve al que tu elijas.",
 			"link_phone": "Enlaza un celular",
 			"link_another": "Enlaza otro celular",
-			"step_open": "En tu celular, abre Limusic: Configuración › Integraciones › Dispositivos",
+			"step_open": "En tu celular, abre Vibratunes: Configuración › Integraciones › Dispositivos",
 			"step_type": "Escribe este código",
 			"custom_server": "En este servidor, escribe {invite}",
 			"expires_in": "Expira en {time}",
@@ -831,7 +831,7 @@
 			"reset_zoom": "Restablecer zoom",
 			"show_this_list": "Mostrar esta lista",
 			"refresh_page": "Actualizar pagina",
-			"quit_app": "Salir de Limusic",
+			"quit_app": "Salir de Vibratunes",
 			"like_song": "Dar me gusta o no me gusta a la canción"
 		},
 		"tempo_pitch": {
@@ -975,7 +975,7 @@
 		"discord_tooltip_off": "Muestra lo que reproduces en Discord",
 		"lastfm_scrobbling_as": "Scrobbleando como {user}",
 		"lastfm_disconnected": "Last.fm desconectado",
-		"lastfm_approve_in_browser": "Aprueba Limusic en tu navegador",
+		"lastfm_approve_in_browser": "Aprueba Vibratunes en tu navegador",
 		"lastfm_connecting": "Conectando a Last.fm — haz clic para cancelar",
 		"lastfm_scrobble_to": "Registrar en Last.fm",
 		"disconnect": "Desconectar",
@@ -1078,7 +1078,7 @@
 			"qq": "Catálogo chino, fuerte en Mandopop y Cantopop.",
 			"kugou": "Catálogo chino, para pistas poco comunes.",
 			"unison": "Letras de la comunidad de Better Lyrics, en su mayoría palabra por palabra y sincronizadas con el vídeo exacto.",
-			"limusic": "Letras propias de Limusic, siempre palabra por palabra, sincronizadas para el video exacto."
+			"limusic": "Letras propias de Vibratunes, siempre palabra por palabra, sincronizadas para el video exacto."
 		},
 		"text_size": "Tamaño del texto",
 		"text_size_hint": "Hace las letras musicales más grandes o más pequeñas",
@@ -1106,10 +1106,10 @@
 		"report_send": "Enviar reporte",
 		"reported": "Reportada. Un moderador echará un vistazo.",
 		"feedback_own": "Estas son tus propias letras.",
-		"feedback_gone": "Estas letras ya no están en Limusic.",
+		"feedback_gone": "Estas letras ya no están en Vibratunes.",
 		"feedback_rate_limited": "Esto es mucho a la vez. Intenta otra vez después.",
 		"feedback_banned": "Esta cuenta no puede votar o reportar.",
-		"feedback_failed": "No se pudo conectar con Limusic Lyrics, entonces no se guardó.",
+		"feedback_failed": "No se pudo conectar con Vibratunes Lyrics, entonces no se guardó.",
 		"via": "via {source}"
 	},
 	"queue": {
@@ -1240,7 +1240,7 @@
 	"errors": {
 		"unreachable": "No se pudo conectar con YouTube Music. Comprueba tu conexión.",
 		"offline_title": "Sin conexión",
-		"offline_body": "Limusic no pudo conectarse a YouTube Music. Comprueba tu conexión a internet e intenta de nuevo.",
+		"offline_body": "Vibratunes no pudo conectarse a YouTube Music. Comprueba tu conexión a internet e intenta de nuevo.",
 		"generic_title": "Algo salió mal"
 	},
 	"search": {
@@ -1296,7 +1296,7 @@
 		"to_check": "{count} por revisar",
 		"not_found": "{count} no se encontraron",
 		"keep_browsing_hint": "Puedes cerrar esta ventana, el proceso continuara. La barra lateral mostrará que tanto lleva.",
-		"pace_hint": "Limusic va lento a propósito, cerca de una canción por cada dos segundos, para que YouTube Music vea un uso ordinario.",
+		"pace_hint": "Vibratunes va lento a propósito, cerca de una canción por cada dos segundos, para que YouTube Music vea un uso ordinario.",
 		"waiting": "Tomando un descanso para mantenerse dentro de los límites de YouTube Music. Continuará a las {time}.",
 		"keep_browsing": "Seguir explorando",
 		"stop": "Parar",
@@ -1358,12 +1358,12 @@
 			"empty": "Ahí no hay ninguna canción.",
 			"unreadable": "Ese archivo no se pudo leer. Usa el zip que Spotify te envio por email, uno de los archivos JSON dentro de este, o un archivo CSV.",
 			"csv_columns": "Ese CSV no tiene una columna de títulos de canciones.",
-			"spotify_changed": "Spotify cambió como comparte playlists. Una actualización de Limusic va a arreglar esto.",
+			"spotify_changed": "Spotify cambió como comparte playlists. Una actualización de Vibratunes va a arreglar esto.",
 			"busy": "Una importación ya se esta procesando.",
 			"nothing_read": "Elige una playlist primero.",
 			"gone": "Esa importación ya no está activa.",
 			"not_found": "No se pudo encontrar eso en YouTube Music.",
-			"cooldown": "YouTube Music le pidió a Limusic que bajara la velocidad, así que los importes se pausaron hasta las {time}. Todo lo que se ha encontrado se conserva."
+			"cooldown": "YouTube Music le pidió a Vibratunes que bajara la velocidad, así que los importes se pausaron hasta las {time}. Todo lo que se ha encontrado se conserva."
 		},
 		"paste_link_hint": "¿Solo en YouTube como un video? Pega su link."
 	},
@@ -1467,7 +1467,7 @@
 		"nothing_in_range": "Nada se reprodujo en este periodo.",
 		"empty_title": "Tus estadísticas inician aquí",
 		"empty": "Reproduce algunas canciones y esta pagina se llenara con lo que escuchas, cuando y por cuanto tiempo.",
-		"on_device": "Calculado en este dispositivo a partir de lo que reproduces en Limusic. No se envía ninguna información.",
+		"on_device": "Calculado en este dispositivo a partir de lo que reproduces en Vibratunes. No se envía ninguna información.",
 		"clear": "Borrar el historial de reproducción",
 		"clear_title": "¿Borrar el historial de reproducción?",
 		"clear_desc": "Esto olvida cada reproducción contada en este dispositivo, tus estadísticas se reinician y \"En Repetición\" se vacía. Tu historial de YouTube Music no se toca.",
@@ -1493,7 +1493,7 @@
 			"runtime_linux": "ONNX Runtime (desde su lanzamiento oficial en GitHub) y el plugin ONNX Runtime WebGPU (desde files.pythonhosted.org) también se descargan.",
 			"credit": "UVR-MDX-NET-Inst_HQ_3, UVR-MDX-NET-Inst_Main y UVR_MDXNET_3_9662, de Ultimate Vocal Remover por Anjok07 y aufr33, Licencia MIT.",
 			"credit_link": "Ultimate Vocal Remover",
-			"redownload": "Para preparar la canción, Limusic descarga su audio una vez más.",
+			"redownload": "Para preparar la canción, Vibratunes descarga su audio una vez más.",
 			"directml": "En una tarjeta de video, el karaoke se ejecuta mediante Microsoft DirectML, que puede enviar datos de uso a Microsoft."
 		},
 		"experimental_tooltip": "Aún en desarrollo. El modo \"Leve\" puede dejar un poco de voz, y \"Máximo\" es lento sin tarjeta gráfica. Si una canción sale mal, por favor repórtala.",
@@ -1526,7 +1526,7 @@
 		},
 		"setup": {
 			"title": "Configurar el karaoke",
-			"desc": "Limusic quita las voces de las canciones en esta computadora. Escoge una calidad para descargar, la puedes cambiar después.",
+			"desc": "Vibratunes quita las voces de las canciones en esta computadora. Escoge una calidad para descargar, la puedes cambiar después.",
 			"local": "Las canciones se preparan en esta computadora y nada se sube.",
 			"cache": "Las canciones preparadas se quedan en el disco, así que se reproducen rápidamente la siguiente vez.",
 			"download": "Descargar {size}",
@@ -1535,12 +1535,12 @@
 			"progress": "{done} de {total} MB"
 		},
 		"unavailable": {
-			"not_installed": "El karaoke no está incluido en esta versión de Limusic.",
-			"corrupt": "Los archivos del karaoke están dañados. Intenta activando el karaoke otra vez; si no eso no funciona, reinstala Limusic.",
+			"not_installed": "El karaoke no está incluido en esta versión de Vibratunes.",
+			"corrupt": "Los archivos del karaoke están dañados. Intenta activando el karaoke otra vez; si no eso no funciona, reinstala Vibratunes.",
 			"vc_runtime": "El karaoke requiere una versión más reciente de Microsoft Visual C++ Redistributable (14.44 o posterior).",
 			"load_failed": "Karaoke no pudo iniciar en esta computadora.",
 			"proxy": "El karaoke no está disponible mientras hay un proxy activo.",
-			"stopped": "El karaoke se detuvo inesperadamente. Reinicia Limusic para usarlo otra vez."
+			"stopped": "El karaoke se detuvo inesperadamente. Reinicia Vibratunes para usarlo otra vez."
 		},
 		"error": {
 			"incomplete_download": "El audio de la canción no se termino de descargar. Intenta otra vez en un poco.",
@@ -1727,9 +1727,9 @@
 		"send_then_live": "Se publican de inmediato.",
 		"sending": "Enviando",
 		"sent_published_title": "Tus letras ya están publicadas",
-		"sent_published": "Gracias por contribuir a Limusic Lyrics.",
+		"sent_published": "Gracias por contribuir a Vibratunes Lyrics.",
 		"sent_pending_title": "Enviado",
-		"sent_pending": "Tus letras se publican cuando un moderador las apruebe. Gracias por contribuir a Limusic Lyrics.",
+		"sent_pending": "Tus letras se publican cuando un moderador las apruebe. Gracias por contribuir a Vibratunes Lyrics.",
 		"err_signed_out_title": "Se ha cerrado tu sesión",
 		"err_signed_out": "Tu borrador se guardó. Envíalo de nuevo para publicarlo sin nombre, o conecta tu cuenta en Configuración primero.",
 		"err_banned_title": "Esta cuenta no puede enviar letras",
@@ -1745,7 +1745,7 @@
 		"err_unchanged": "Estas letras son las mismas que las que estás publicadas.",
 		"err_rate_limited_title": "Has hecho demasiado en una hora",
 		"err_rate_limited": "Intenta otra vez después. Tu borrador se guardó.",
-		"err_unavailable_title": "Limusic Lyrics no está disponible",
+		"err_unavailable_title": "Vibratunes Lyrics no está disponible",
 		"err_unavailable": "Tu borrador se guardó. Intenta otra vez en un momento.",
 		"text_placeholder": "Texto de la línea",
 		"add_gap": "Añadir una pausa instrumental",
@@ -1809,8 +1809,8 @@
 		"signin_banned": "Esta cuenta no puede iniciar sesión.",
 		"signin_failed": "El inicio de sesión no funcionó. Vuelve a iniciar.",
 		"signin_rate_limited": "Muchos intentos. Intenta otra vez después.",
-		"session_ended": "Se cerró la sesión de tu cuenta de Limusic. Vúelvela a vincular para recuperar tu nombre.",
-		"unreachable": "No se pudo conectar con Limusic Lyrics."
+		"session_ended": "Se cerró la sesión de tu cuenta de Vibratunes. Vúelvela a vincular para recuperar tu nombre.",
+		"unreachable": "No se pudo conectar con Vibratunes Lyrics."
 	},
 	"review": {
 		"title": "Revisar letras",
@@ -1853,7 +1853,7 @@
 		"rejected": "Rechazada.",
 		"taken_down": "Eliminada.",
 		"err_gone": "Otro moderador ya tomó una decisión sobre esta letra. Esta salió de tu lista.",
-		"err_signed_out": "Se cerró la sesión de tu cuenta de Limusic. Vúelvela a vincular para seguir revisando.",
+		"err_signed_out": "Se cerró la sesión de tu cuenta de Vibratunes. Vúelvela a vincular para seguir revisando.",
 		"err_forbidden": "Tu cuenta no puede revisar letras.",
 		"err_banned": "Esta cuenta no puede revisar letras.",
 		"err_rate_limited": "Muchas peticiones. Intenta otra vez en un momento.",
@@ -1862,6 +1862,6 @@
 		"settings_none": "Nada espera revisión",
 		"settings_open": "Revisar letras",
 		"load_more": "Mostrar más",
-		"err_unavailable": "No se pudo conectar con Limusic Lyrics."
+		"err_unavailable": "No se pudo conectar con Vibratunes Lyrics."
 	}
 }

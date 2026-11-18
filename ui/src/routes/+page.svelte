@@ -10,7 +10,7 @@
 		ViewOffSlashIcon
 	} from '@hugeicons/core-free-icons';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import LimusicLoader from '$lib/components/LimusicLoader.svelte';
+	import VibratunesLoader from '$lib/components/VibratunesLoader.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import MediaCardSkeleton from '$lib/components/MediaCardSkeleton.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
@@ -330,7 +330,7 @@
 
 	/**
 	 * YouTube's "From the community" shelf is already account-personalized, but it isn't tied to what
-	 * the user actually plays *in Limusic*. Swap its items for community playlists searched from
+	 * the user actually plays *in Vibratunes*. Swap its items for community playlists searched from
 	 * their top artists, keeping the shelf's title and position. With no listening signal yet — or if
 	 * the searches fail — YouTube's own items are left exactly as they came. Best-effort: this can
 	 * never fail the page.
@@ -537,7 +537,7 @@
 						<!-- Remounted per page: a page whose shelves home doesn't show leaves the sentinel
 						     in view, and the observer only fires on entering it. -->
 						{#key home.sections.length}<div {@attach sentinel}></div>{/key}
-						{#if loadingMore}<div class="flex justify-center py-10"><LimusicLoader /></div>{/if}
+						{#if loadingMore}<div class="flex justify-center py-10"><VibratunesLoader /></div>{/if}
 					</div>
 				{/if}
 			{/if}

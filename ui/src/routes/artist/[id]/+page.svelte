@@ -15,7 +15,7 @@
 		BookmarkCheck02Icon,
 		ArrowRight01Icon
 	} from '@hugeicons/core-free-icons';
-	import LimusicLoader from '$lib/components/LimusicLoader.svelte';
+	import VibratunesLoader from '$lib/components/VibratunesLoader.svelte';
 	import TrackRow from '$lib/components/TrackRow.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import Shelf from '$lib/components/Shelf.svelte';
@@ -180,7 +180,7 @@
 </script>
 
 {#if loading}
-	<div class="flex h-full items-center justify-center"><LimusicLoader /></div>
+	<div class="flex h-full items-center justify-center"><VibratunesLoader /></div>
 {:else if error}
 	<div class="p-6"><ErrorState message={error} onRetry={() => load(id)} /></div>
 {:else if artist}

@@ -33,7 +33,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import LimusicLoader from '$lib/components/LimusicLoader.svelte';
+	import VibratunesLoader from '$lib/components/VibratunesLoader.svelte';
 	import TrackRow from '$lib/components/TrackRow.svelte';
 	import TrackColumns, { chosen, loadMyPlays, myPlays } from '$lib/components/TrackColumns.svelte';
 	import { availableColumns, fitColumns } from '$lib/trackcolumns';
@@ -1167,7 +1167,7 @@
 <!-- relative: the Now playing pill floats over the bottom of the scroller. -->
 <div class="relative flex h-full flex-col">
 	{#if loading}
-		<div class="flex flex-1 items-center justify-center"><LimusicLoader /></div>
+		<div class="flex flex-1 items-center justify-center"><VibratunesLoader /></div>
 	{:else if error}
 		<div class="p-6"><ErrorState message={error} onRetry={() => load(id)} /></div>
 	{:else if pl}
@@ -1440,7 +1440,7 @@
 						<div aria-busy={loadingMore}>
 							<div {@attach sentinel}></div>
 							{#if loadingMore}
-								<div class="flex justify-center py-6"><LimusicLoader class="size-10" /></div>
+								<div class="flex justify-center py-6"><VibratunesLoader class="size-10" /></div>
 							{/if}
 						</div>
 					{/if}

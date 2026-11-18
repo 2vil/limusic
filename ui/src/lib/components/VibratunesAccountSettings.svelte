@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Contributing to Limusic Lyrics (see `limusic.rs`). One card that says who you are here:
+	// Contributing to Vibratunes Lyrics (see `limusic.rs`). One card that says who you are here:
 	// nobody yet, anonymous, or a linked account with its name, avatar and points. Linking Discord
 	// or GitHub is optional, so it is shown as what it gives and the one thing it reads. While a
 	// link waits for the browser, the card is the code its confirm page shows.
@@ -11,8 +11,8 @@
 	import DiscordIcon from './DiscordIcon.svelte';
 	import { ui } from '$lib/player.svelte';
 	import { currentLocale, t } from '$lib/i18n.svelte';
-	import { cancelSignIn, limusic, refreshAccount, rename, signIn, signOut } from '$lib/limusic.svelte';
-	import { providerName } from '$lib/limusic';
+	import { cancelSignIn, limusic, refreshAccount, rename, signIn, signOut } from '$lib/vibratuneslyrics.svelte';
+	import { providerName } from '$lib/vibratuneslyrics';
 	import { waitingLabel } from '$lib/review';
 	import type { TranslationKey } from '$lib/i18n.svelte';
 

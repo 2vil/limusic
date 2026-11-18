@@ -289,7 +289,7 @@ mod imp {
         let tray = builder.build(app)?;
         #[cfg(target_os = "macos")]
         {
-            let _ = tray.set_tooltip(Some("Limusic"));
+            let _ = tray.set_tooltip(Some("Vibratunes"));
             patch_macos_tray();
         }
         #[cfg(not(target_os = "macos"))]

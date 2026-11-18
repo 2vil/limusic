@@ -23,11 +23,11 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import ErrorState from '$lib/components/ErrorState.svelte';
-	import LimusicNotice from '$lib/components/LimusicNotice.svelte';
+	import VibratunesNotice from '$lib/components/VibratunesNotice.svelte';
 	import LyricsView from '$lib/components/LyricsView.svelte';
 	import * as api from '$lib/api';
 	import { playback, seekTo, toast } from '$lib/player.svelte';
-	import { limusic, refreshAccount } from '$lib/limusic.svelte';
+	import { limusic, refreshAccount } from '$lib/vibratuneslyrics.svelte';
 	import { currentLocale, t } from '$lib/i18n.svelte';
 	import {
 		ago,
@@ -43,7 +43,7 @@
 	} from '$lib/review';
 
 	let allowed = $state(true);
-	let items = $state.raw<api.LimusicQueueItem[]>([]);
+	let items = $state.raw<api.VibratunesQueueItem[]>([]);
 	let next = $state<number | null>(null);
 	let loading = $state(true);
 	let loadError = $state('');
@@ -90,8 +90,8 @@
 
 	// --- One submission ---------------------------------------------------------------------------
 	type Side = 'proposed' | 'current' | 'changes';
-	let open = $state<api.LimusicQueueItem | null>(null);
-	let detail = $state.raw<api.LimusicRevision | null>(null);
+	let open = $state<api.VibratunesQueueItem | null>(null);
+	let detail = $state.raw<api.VibratunesRevision | null>(null);
 	let detailError = $state('');
 	/** What is live now, for an edit. `undefined` while it loads, null when there is nothing. */
 	let current = $state.raw<api.Lyrics | null | undefined>(undefined);
@@ -126,12 +126,12 @@
 	/** The song plays from the start; one already playing is taken back to it. It starts as a song
 	 *  radio, like a timecode link does, because that is what fetches its cover and album: a bare
 	 *  id has neither. The player view is not opened, this page stays in front. */
-	function play(item: api.LimusicQueueItem) {
+	function play(item: api.VibratunesQueueItem) {
 		if (playback.now?.videoId === item.video_id) return seekTo(0);
 		api.startRadio('song', item.video_id, item.title, 0).catch((e) => toast.error(String(e)));
 	}
 
-	async function openItem(item: api.LimusicQueueItem) {
+	async function openItem(item: api.VibratunesQueueItem) {
 		open = item;
 		detail = null;
 		detailError = '';
@@ -196,7 +196,7 @@
 	const wide = $derived(pageW === 0 || pageW >= 860);
 	/** Covers that did not load: the row shows a note instead. */
 	let noCover = $state<Record<string, true>>({});
-	const when = (item: api.LimusicQueueItem) => ago(item.created_at, Date.now() / 1000, currentLocale.id);
+	const when = (item: api.VibratunesQueueItem) => ago(item.created_at, Date.now() / 1000, currentLocale.id);
 	const length = (secs: number | null) =>
 		secs ? `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}` : '';
 	const shift = (ms: number) =>
@@ -205,7 +205,7 @@
 		});
 </script>
 
-{#snippet cover(item: api.LimusicQueueItem, size: string, radius = 'rounded-lg')}
+{#snippet cover(item: api.VibratunesQueueItem, size: string, radius = 'rounded-lg')}
 	{@const src = coverOf(item.video_id)}
 	<span class="flex shrink-0 items-center justify-center overflow-hidden bg-muted text-muted-foreground/20 {radius}" style="width:{size};height:{size}">
 		{#if src && !noCover[item.video_id]}
@@ -216,7 +216,7 @@
 	</span>
 {/snippet}
 
-{#snippet kind(item: api.LimusicQueueItem)}
+{#snippet kind(item: api.VibratunesQueueItem)}
 	<!-- A shape as well as a word: three blocks keyed on the kind, so each icon is fixed. -->
 	{#if item.kind === 'new'}
 		<span class="flex h-5 shrink-0 items-center gap-1 rounded-full bg-primary/16 px-2 text-[11px] font-semibold">
@@ -261,11 +261,11 @@
 
 	{#if notice}
 		<div class="px-6 pb-3">
-			<LimusicNotice icon={InformationCircleIcon} title={notice}>
+			<VibratunesNotice icon={InformationCircleIcon} title={notice}>
 				{#snippet actions()}
 					<Button size="sm" variant="ghost" onclick={() => (notice = '')}>{t('common.close')}</Button>
 				{/snippet}
-			</LimusicNotice>
+			</VibratunesNotice>
 		</div>
 	{/if}
 
@@ -397,7 +397,7 @@
 
 				<div class="mx-6 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card">
 					{#if detailError}
-						<div class="p-4"><LimusicNotice icon={InformationCircleIcon} title={detailError} class="border-0 bg-transparent p-0" /></div>
+						<div class="p-4"><VibratunesNotice icon={InformationCircleIcon} title={detailError} class="border-0 bg-transparent p-0" /></div>
 					{:else if !detail || (side !== 'proposed' && current === undefined)}
 						<div class="space-y-3.5 p-6">
 							{#each [60, 78, 52, 70] as w (w)}<Skeleton class="h-6 rounded" style="width:{w}%" />{/each}

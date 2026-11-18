@@ -1,4 +1,4 @@
-//! Device link: Limusic on a phone as a remote for this desktop, and "Continue here" both ways.
+//! Device link: Vibratunes on a phone as a remote for this desktop, and "Continue here" both ways.
 //!
 //! A link room lives on the Listen Together server (`crates/sync-server`), keyed by a long secret
 //! instead of a room code: holding the secret is membership. The room's host is the device that is
@@ -173,7 +173,7 @@ impl LinkSession {
             inner: Mutex::new(Inner { config, ..Inner::default() }),
             cmd_tx,
             gen: AtomicU64::new(0),
-            name: if name.is_empty() { "Limusic desktop".into() } else { name },
+            name: if name.is_empty() { "Vibratunes desktop".into() } else { name },
         });
         if s.linked() {
             s.connect();

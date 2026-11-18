@@ -7,7 +7,7 @@
 			"runtime_linux": "ONNX Runtime (from its official GitHub release) and the ONNX Runtime WebGPU plugin (from files.pythonhosted.org) are downloaded too.",
 			"credit": "UVR-MDX-NET-Inst_HQ_3, UVR-MDX-NET-Inst_Main and UVR_MDXNET_3_9662, from Ultimate Vocal Remover by Anjok07 and aufr33, MIT License.",
 			"credit_link": "Ultimate Vocal Remover",
-			"redownload": "To prepare a song, Limusic downloads its audio once more.",
+			"redownload": "To prepare a song, Vibratunes downloads its audio once more.",
 			"directml": "On a graphics card, karaoke runs through Microsoft DirectML, which may send usage data to Microsoft."
 		},
 		"experimental_tooltip": "Still being tuned. Light can leave a little of the vocals in, and Best is slow without a graphics card. If a song comes out wrong, please report it.",
@@ -40,7 +40,7 @@
 		},
 		"setup": {
 			"title": "Set up karaoke",
-			"desc": "Limusic takes the vocals out of songs right on this computer. Pick a quality to download once, you can change it later.",
+			"desc": "Vibratunes takes the vocals out of songs right on this computer. Pick a quality to download once, you can change it later.",
 			"local": "Songs are prepared on this computer and nothing is uploaded.",
 			"cache": "Prepared songs are kept on disk, so they play straight away next time.",
 			"download": "Download {size}",
@@ -49,12 +49,12 @@
 			"progress": "{done} of {total} MB"
 		},
 		"unavailable": {
-			"not_installed": "Karaoke isn't included in this build of Limusic.",
-			"corrupt": "Karaoke's files are damaged. Try turning karaoke on again; if that doesn't help, reinstall Limusic.",
+			"not_installed": "Karaoke isn't included in this build of Vibratunes.",
+			"corrupt": "Karaoke's files are damaged. Try turning karaoke on again; if that doesn't help, reinstall Vibratunes.",
 			"vc_runtime": "Karaoke needs a newer Microsoft Visual C++ Redistributable (14.44 or later).",
 			"load_failed": "Karaoke couldn't start on this computer.",
 			"proxy": "Karaoke isn't available while a proxy is set.",
-			"stopped": "Karaoke stopped unexpectedly. Restart Limusic to use it again."
+			"stopped": "Karaoke stopped unexpectedly. Restart Vibratunes to use it again."
 		},
 		"error": {
 			"incomplete_download": "The song's audio didn't finish downloading. Trying again shortly.",
@@ -560,13 +560,13 @@
 			"scrobbling": "Scrobbling",
 			"scrobbling_hint": "What scrobbling sends, and when a play counts.",
 			"devices": "Devices",
-			"devices_hint": "Control this desktop from Limusic on your phone.",
+			"devices_hint": "Control this desktop from Vibratunes on your phone.",
 			"themes": "Appearance",
 			"themes_hint": "Colors, fonts and the player view.",
 			"playback": "Playback",
 			"playback_hint": "Quality, queue behaviour and lyrics.",
 			"contributing": "Contributing",
-			"contributing_hint": "Your Limusic Lyrics account, and how to add lyrics.",
+			"contributing_hint": "Your Vibratunes Lyrics account, and how to add lyrics.",
 			"hotkeys": "Global Hotkeys",
 			"hotkeys_hint": "System-wide shortcuts to control playback.",
 			"data": "Data & storage",
@@ -1328,10 +1328,10 @@
 		"report_send": "Send report",
 		"reported": "Reported. A reviewer will look at it.",
 		"feedback_own": "These are your own lyrics.",
-		"feedback_gone": "These lyrics are no longer on Limusic.",
+		"feedback_gone": "These lyrics are no longer on Vibratunes.",
 		"feedback_rate_limited": "That's a lot at once. Try again later.",
 		"feedback_banned": "This account can't vote or report.",
-		"feedback_failed": "Limusic Lyrics couldn't be reached, so it wasn't saved.",
+		"feedback_failed": "Vibratunes Lyrics couldn't be reached, so it wasn't saved.",
 		"search_title": "Title",
 		"search_artist": "Artist",
 		"search_go": "Search",
@@ -1350,7 +1350,7 @@
 		"draft": "Continue your draft",
 		"draft_hint": "{done} of {total} lines timed.",
 		"about": {
-			"limusic": "Limusic's own lyrics, always word by word, timed to the exact video.",
+			"limusic": "Vibratunes's own lyrics, always word by word, timed to the exact video.",
 			"boidu": "The Better Lyrics database. Word by word, for songs someone has looked up before.",
 			"unison": "Better Lyrics' community lyrics, mostly word by word, timed to the exact video.",
 			"lyricsplus": "Apple Music lyrics, word by word, with Apple's own romanization.",
@@ -1511,9 +1511,9 @@
 		"sending": "Sending",
 		"done": "Done",
 		"sent_published_title": "Your lyrics are live",
-		"sent_published": "Thank you for adding to Limusic Lyrics.",
+		"sent_published": "Thank you for adding to Vibratunes Lyrics.",
 		"sent_pending_title": "Sent",
-		"sent_pending": "Your lyrics go live once a reviewer approves them. Thank you for adding to Limusic Lyrics.",
+		"sent_pending": "Your lyrics go live once a reviewer approves them. Thank you for adding to Vibratunes Lyrics.",
 		"err_signed_out_title": "You were signed out",
 		"err_signed_out": "Your draft is saved. Send again to submit it without a name, or link your account in Settings first.",
 		"err_banned_title": "This account can't send lyrics",
@@ -1530,7 +1530,7 @@
 		"err_copied": "{source} already has these lyrics word by word, so there's nothing new to send.",
 		"err_rate_limited_title": "That's a lot for one hour",
 		"err_rate_limited": "Try again later. Your draft is saved.",
-		"err_unavailable_title": "Limusic Lyrics couldn't be reached",
+		"err_unavailable_title": "Vibratunes Lyrics couldn't be reached",
 		"err_unavailable": "Your draft is saved. Try again in a moment."
 	},
 	"limusic": {
@@ -1571,8 +1571,8 @@
 		"signin_banned": "This account can't sign in.",
 		"signin_failed": "The sign-in didn't work. Start it again.",
 		"signin_rate_limited": "Too many attempts. Try again later.",
-		"session_ended": "You were signed out of your Limusic account. Link it again to get your name back.",
-		"unreachable": "Limusic Lyrics couldn't be reached."
+		"session_ended": "You were signed out of your Vibratunes account. Link it again to get your name back.",
+		"unreachable": "Vibratunes Lyrics couldn't be reached."
 	},
 	"review": {
 		"title": "Review lyrics",
@@ -1616,12 +1616,12 @@
 		"rejected": "Rejected.",
 		"taken_down": "Taken down.",
 		"err_gone": "Another reviewer already decided this one. It has left your list.",
-		"err_signed_out": "You were signed out of your Limusic account. Link it again to keep reviewing.",
+		"err_signed_out": "You were signed out of your Vibratunes account. Link it again to keep reviewing.",
 		"err_forbidden": "Your account can't review lyrics.",
 		"err_banned": "This account can't review lyrics.",
 		"err_rate_limited": "Too many requests. Try again in a moment.",
 		"err_invalid": "The service refused that.",
-		"err_unavailable": "Limusic Lyrics couldn't be reached.",
+		"err_unavailable": "Vibratunes Lyrics couldn't be reached.",
 		"settings_waiting": "{count} waiting for review",
 		"settings_none": "Nothing is waiting for review",
 		"settings_open": "Review lyrics"

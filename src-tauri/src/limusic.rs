@@ -1,4 +1,4 @@
-//! Limusic Lyrics accounts: the anonymous session, linking Discord or GitHub, renaming,
+//! Vibratunes Lyrics accounts: the anonymous session, linking Discord or GitHub, renaming,
 //! submitting a lyric, and voting on or reporting the one that is live.
 //!
 //! The wire contract is the service's README ("Accounts and community lyrics"). Contributing is
@@ -203,7 +203,7 @@ pub async fn live(video_id: &str) -> Option<Live> {
         else {
             return None;
         };
-        let answer: crate::lyrics::LimusicAnswer = serde_json::from_value(body).ok()?;
+        let answer: crate::lyrics::VibratunesAnswer = serde_json::from_value(body).ok()?;
         crate::lyrics::limusic_to_lyrics(answer)
     }
     .await;
@@ -248,12 +248,12 @@ fn clear(state: &AppState) {
     store(state, "", None, false);
 }
 
-/// `limusic-account`: the session changed (made, linked, signed in, or ended). The payload is
+/// `vibratunes-account`: the session changed (made, linked, signed in, or ended). The payload is
 /// `status`, plus `error`, a code the UI words (`expired`, `banned`, `failed`, `session_ended`).
 fn emit(state: &AppState, error: Option<&str>) {
     let mut v = status(state);
     v["error"] = error.into();
-    let _ = state.app.emit("limusic-account", v);
+    let _ = state.app.emit("vibratunes-account", v);
 }
 
 /// The stored session, without asking the service. Anonymous accounts have no handle.
@@ -312,7 +312,7 @@ async fn post_link(token: &str, challenge: &str) -> Option<(u16, Value)> {
     send(rb, Some(token)).await
 }
 
-/// Opens the browser and polls in the background; the answer arrives as `limusic-account`. Returns
+/// Opens the browser and polls in the background; the answer arrives as `vibratunes-account`. Returns
 /// the code the user should see on the confirm page. With an anonymous session the identity is
 /// linked to that account (the service is told the challenge first); with none, signing in makes
 /// a linked account. A linked session has nothing to link.
@@ -535,7 +535,7 @@ pub async fn submit(state: &AppState, s: Submission) -> Submitted {
     }
     if let Submitted::Published { revision } = &result {
         // The lyric is live: the next look at this song shows it, not the old cached one.
-        let answer = crate::lyrics::LimusicAnswer {
+        let answer = crate::lyrics::VibratunesAnswer {
             origin: "community".into(),
             revision: Some(*revision),
             lines: s.lines,
@@ -555,7 +555,7 @@ pub async fn submit(state: &AppState, s: Submission) -> Submitted {
 // On the song's live revision, mirrored ones included. Like a submit, the first one makes an
 // anonymous account silently.
 
-/// What the source picker shows for the lyric Limusic has live.
+/// What the source picker shows for the lyric Vibratunes has live.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct LyricState {
     pub revision: i64,
@@ -816,7 +816,7 @@ struct RawRevision {
 
 fn parse_revision(body: Value) -> Option<Revision> {
     let r: RawRevision = serde_json::from_value(body).ok()?;
-    let answer = crate::lyrics::LimusicAnswer {
+    let answer = crate::lyrics::VibratunesAnswer {
         origin: "community".into(),
         revision: Some(r.revision),
         lines: r.lines,
@@ -1407,7 +1407,7 @@ mod tests {
         assert_eq!(r.note.as_deref(), Some("fixed the second verse"));
         let l = r.lyrics.unwrap();
         assert!(l.synced && l.lines[0].words.as_ref().unwrap().len() == 2);
-        assert_eq!(l.source, "Limusic");
+        assert_eq!(l.source, "Vibratunes");
         assert!(parse_revision(json!({"revision": 1})).is_none());
         // A revision whose lines are empty has no lyric to show, but still reads.
         let empty = json!({"revision": 1, "video_id": "AAAAAAAAAAA", "status": "pending",

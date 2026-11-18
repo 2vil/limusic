@@ -1,15 +1,15 @@
 // The review screen's rules, pure so `review.check.ts` can run them: where a row goes when it is
 // decided, what a refusal means, how old a submission is. The page is `routes/review`.
-import type { LimusicQueueItem, LyricLine } from './api';
+import type { VibratunesQueueItem, LyricLine } from './api';
 import type { TranslationKey } from './i18n.svelte';
 
 /** The queue without `revision`: a decided row leaves the list at once. */
-export const without = (items: LimusicQueueItem[], revision: number): LimusicQueueItem[] =>
+export const without = (items: VibratunesQueueItem[], revision: number): VibratunesQueueItem[] =>
 	items.filter((i) => i.revision !== revision);
 
 /** `row` back in its place when the service refused. The queue is oldest first, which is by
  *  revision id, so it goes in front of the first newer one. Already there: unchanged. */
-export function restored(items: LimusicQueueItem[], row: LimusicQueueItem): LimusicQueueItem[] {
+export function restored(items: VibratunesQueueItem[], row: VibratunesQueueItem): VibratunesQueueItem[] {
 	if (items.some((i) => i.revision === row.revision)) return items;
 	const at = items.findIndex((i) => i.revision > row.revision);
 	const copy = items.slice();

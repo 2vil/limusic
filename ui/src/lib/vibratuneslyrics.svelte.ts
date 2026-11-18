@@ -1,9 +1,9 @@
-// Contributing to Limusic Lyrics from the app: whether the service offers accounts, who is signed
+// Contributing to Vibratunes Lyrics from the app: whether the service offers accounts, who is signed
 // in, and the one function the lyric editor submits through. The Rust half is `limusic.rs`.
 import * as api from '$lib/api';
 import { toast } from '$lib/player.svelte';
 import { t, type TranslationKey } from '$lib/i18n.svelte';
-import { accountErrorKey, signInErrorKey } from './limusic';
+import { accountErrorKey, signInErrorKey } from './vibratuneslyrics';
 
 export const limusic = $state({
 	/** Whether "Sync lyrics" / "Improve these lyrics" and the account card are offered at all: the
@@ -16,7 +16,7 @@ export const limusic = $state({
 	signedIn: false,
 	handle: null as string | null,
 	anonymous: false,
-	account: null as api.LimusicAccount | null,
+	account: null as api.VibratunesAccount | null,
 	/** Submissions waiting for review, for a reviewer: the first page only, so `more` says there are
 	 *  others. Null until asked, and for everyone else. */
 	waiting: null as { count: number; more: boolean } | null,
@@ -26,7 +26,7 @@ export const limusic = $state({
 	launching: false
 });
 
-function apply(s: api.LimusicAccountState) {
+function apply(s: api.VibratunesAccountState) {
 	limusic.signedIn = s.signed_in;
 	limusic.handle = s.handle ?? null;
 	limusic.anonymous = s.anonymous;
@@ -38,7 +38,7 @@ function apply(s: api.LimusicAccountState) {
 
 /** Once per start, from the root layout: asks the service whether it has accounts, in the
  *  background, and follows the session from then on. Returns the unlisten. */
-export function watchLimusic(): () => void {
+export function watchVibratunes(): () => void {
 	api.limusicProviders()
 		.then((p) => {
 			limusic.providers = p.providers;
@@ -46,7 +46,7 @@ export function watchLimusic(): () => void {
 		})
 		.catch(() => {});
 	api.limusicStatus().then(apply).catch(() => {});
-	const sub = api.onLimusicAccount((s) => {
+	const sub = api.onVibratunesAccount((s) => {
 		const waiting = limusic.signingIn !== null;
 		limusic.signingIn = null;
 		apply(s);
@@ -137,7 +137,7 @@ export interface LyricsSubmission {
 
 /** THE SUBMIT SEAM. The editor calls this and nothing else to send a lyric. A transport failure
  *  is an `unavailable` answer, never a throw. */
-export async function submitLyrics(s: LyricsSubmission): Promise<api.LimusicSubmitted> {
+export async function submitLyrics(s: LyricsSubmission): Promise<api.VibratunesSubmitted> {
 	try {
 		return await api.limusicSubmit({
 			video_id: s.videoId,

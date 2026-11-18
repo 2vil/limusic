@@ -1,5 +1,5 @@
 <script lang="ts">
-	// The Devices tab: link Limusic on a phone so the two control each other and move the music
+	// The Devices tab: link Vibratunes on a phone so the two control each other and move the music
 	// between them (src-tauri/src/devicelink.rs). Three states: nothing linked, pairing (steps and
 	// the code), and the devices as cards: this computer first, then each linked phone with what it
 	// plays and a button to move the music there or back.

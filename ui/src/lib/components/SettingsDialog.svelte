@@ -61,8 +61,8 @@
 	import { getVersion } from '@tauri-apps/api/app';
 	import { t, setLocale, currentLocale, LOCALES } from '$lib/i18n.svelte';
 	import GlobalHotkeysSettings from '$lib/components/GlobalHotkeysSettings.svelte';
-	import LimusicAccountSettings from './LimusicAccountSettings.svelte';
-	import { limusic } from '$lib/limusic.svelte';
+	import VibratunesAccountSettings from './VibratunesAccountSettings.svelte';
+	import { limusic } from '$lib/vibratuneslyrics.svelte';
 	import LyricsSourcesSettings from '$lib/components/LyricsSourcesSettings.svelte';
 	import EnhancedLyricsSettings from '$lib/components/EnhancedLyricsSettings.svelte';
 	import LanguagePicker from '$lib/components/LanguagePicker.svelte';
@@ -1008,11 +1008,11 @@
 							</div>
 						</section>
 					{:else if tab === 'contributing'}
-						<!-- Limusic Lyrics: who you are there, and how lyrics get added. Its own tab: as a
+						<!-- Vibratunes Lyrics: who you are there, and how lyrics get added. Its own tab: as a
 						     section at the bottom of Playback nobody found it. -->
 						<section class={GROUP}>
 							<h3 class={LABEL}>{t('limusic.account')}</h3>
-							<LimusicAccountSettings />
+							<VibratunesAccountSettings />
 						</section>
 						<section class={GROUP}>
 							<h3 class={LABEL}>{t('limusic.how_title')}</h3>

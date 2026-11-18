@@ -9,7 +9,7 @@ import {
 	signInErrorKey,
 	submitMessage,
 	withVote
-} from './limusic.ts';
+} from './vibratuneslyrics.ts';
 
 function ok(cond: boolean, what: string) {
 	if (!cond) throw new Error(`broken: ${what}`);

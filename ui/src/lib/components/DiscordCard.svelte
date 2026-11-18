@@ -5,7 +5,7 @@
 	// what your friends will read.
 	//
 	// The colors are Discord's, hardcoded rather than taken from the theme tokens. This is a picture
-	// of another application, so following the user's Limusic theme would make it *less* accurate,
+	// of another application, so following the user's Vibratunes theme would make it *less* accurate,
 	// not more. Same reasoning for the English strings marked below: Discord renders "Listening to"
 	// in the *viewer's* language, and the button labels are ours, sent over the wire in English.
 	import { HugeiconsIcon } from '@hugeicons/svelte';

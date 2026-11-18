@@ -53,7 +53,7 @@
 		UserMultiple02Icon,
 		ViewIcon
 	} from '@hugeicons/core-free-icons';
-	import LimusicLoader from '$lib/components/LimusicLoader.svelte';
+	import VibratunesLoader from '$lib/components/VibratunesLoader.svelte';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
 	import { Switch } from '$lib/components/ui/switch';
@@ -62,7 +62,7 @@
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Popover from '$lib/components/ui/popover';
-	import LimusicNotice from '$lib/components/LimusicNotice.svelte';
+	import VibratunesNotice from '$lib/components/VibratunesNotice.svelte';
 	import LyricTimeline from '$lib/components/LyricTimeline.svelte';
 	import LyricsView, { prefs as lyricsPrefs, toggle as toggleLyricsPref } from '$lib/components/LyricsView.svelte';
 	import SongMap from '$lib/components/SongMap.svelte';
@@ -71,8 +71,8 @@
 	import { np, playAt, playback, seekTo, toast, ui } from '$lib/player.svelte';
 	import { inRoom } from '$lib/lt.svelte';
 	import { link } from '$lib/link.svelte';
-	import { limusic, liveRevision, refreshAccount, submitLyrics } from '$lib/limusic.svelte';
-	import { submitMessage, type Message } from '$lib/limusic';
+	import { limusic, liveRevision, refreshAccount, submitLyrics } from '$lib/vibratuneslyrics.svelte';
+	import { submitMessage, type Message } from '$lib/vibratuneslyrics';
 	import { thumb } from '$lib/thumb';
 	import { t } from '$lib/i18n.svelte';
 	import { keyOf, typing } from '$lib/shortcuts';
@@ -246,7 +246,7 @@
 		} catch {
 			start = { lyrics: null, base_revision: null };
 		}
-		// A new start may carry a newer live revision: Limusic's old answer would undo it.
+		// A new start may carry a newer live revision: Vibratunes's old answer would undo it.
 		found = {};
 		load++;
 	}
@@ -1201,14 +1201,14 @@
 				{#if restored || saveFailed || blocked || !onTrack || miss.tooMany || miss.tooLong.length}
 					<div class="space-y-2 px-6 pt-4">
 						{#if saveFailed}
-							<LimusicNotice icon={Alert02Icon} tone="error" title={t('lyrics_editor.save_failed_title')} body={t('lyrics_editor.save_failed')} />
+							<VibratunesNotice icon={Alert02Icon} tone="error" title={t('lyrics_editor.save_failed_title')} body={t('lyrics_editor.save_failed')} />
 						{/if}
 						{#if blocked === 'room'}
-							<LimusicNotice icon={UserMultiple02Icon} title={t('lyrics_editor.blocked_room_title')} body={t('lyrics_editor.blocked_room')} />
+							<VibratunesNotice icon={UserMultiple02Icon} title={t('lyrics_editor.blocked_room_title')} body={t('lyrics_editor.blocked_room')} />
 						{:else if blocked === 'remote'}
-							<LimusicNotice icon={ComputerIcon} title={t('lyrics_editor.blocked_remote_title')} body={t('lyrics_editor.blocked_remote')} />
+							<VibratunesNotice icon={ComputerIcon} title={t('lyrics_editor.blocked_remote_title')} body={t('lyrics_editor.blocked_remote')} />
 						{:else if !onTrack}
-							<LimusicNotice title={t('lyrics_editor.other_song_title', { title: track.title })} body={t('lyrics_editor.other_song')}>
+							<VibratunesNotice title={t('lyrics_editor.other_song_title', { title: track.title })} body={t('lyrics_editor.other_song')}>
 								{#snippet lead()}
 									{#if cover}
 										<img src={thumb(cover, 120)} alt="" class="size-8 shrink-0 rounded-md object-cover" draggable="false" />
@@ -1219,20 +1219,20 @@
 										{t('lyrics_editor.other_song_play')}
 									</Button>
 								{/snippet}
-							</LimusicNotice>
+							</VibratunesNotice>
 						{/if}
 						{#if miss.tooMany}
-							<LimusicNotice icon={Alert02Icon} tone="error" title={t('lyrics_editor.too_many_title')} body={t('lyrics_editor.too_many')} />
+							<VibratunesNotice icon={Alert02Icon} tone="error" title={t('lyrics_editor.too_many_title')} body={t('lyrics_editor.too_many')} />
 						{:else if miss.tooLong.length}
 							{@const n = lineNo(miss.tooLong[0])}
-							<LimusicNotice icon={ScissorIcon} tone="error" title={t('lyrics_editor.too_long_title', { n })} body={t('lyrics_editor.too_long')}>
+							<VibratunesNotice icon={ScissorIcon} tone="error" title={t('lyrics_editor.too_long_title', { n })} body={t('lyrics_editor.too_long')}>
 								{#snippet actions()}
 									<Button size="sm" variant="outline" onclick={() => select(n - 1)}>{t('lyrics_editor.too_long_go', { n })}</Button>
 								{/snippet}
-							</LimusicNotice>
+							</VibratunesNotice>
 						{/if}
 						{#if restored}
-							<LimusicNotice
+							<VibratunesNotice
 								icon={PencilEdit02Icon}
 								title={t('lyrics_editor.restored_title')}
 								body={t('lyrics_editor.restored_body', { done: timedCount, total: sung.length })}
@@ -1243,7 +1243,7 @@
 									</Button>
 									<Button size="sm" variant="outline" onclick={() => (restored = false)}>{t('lyrics_editor.restored_ok')}</Button>
 								{/snippet}
-							</LimusicNotice>
+							</VibratunesNotice>
 						{/if}
 					</div>
 				{/if}
@@ -1723,7 +1723,7 @@
 				<Button variant="ghost" disabled={submitting} onclick={() => (sendOpen = false)}>{t('common.cancel')}</Button>
 				<Button disabled={submitting} onclick={submit}>
 					{#if submitting}
-						<LimusicLoader class="size-4 text-current" />
+						<VibratunesLoader class="size-4 text-current" />
 					{:else}
 						<HugeiconsIcon icon={SentIcon} class="size-4" />
 					{/if}

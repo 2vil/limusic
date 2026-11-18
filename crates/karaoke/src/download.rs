@@ -165,7 +165,7 @@ pub async fn fetch(
     }
 
     if have < src.size {
-        let mut request = client.get(url).header(reqwest::header::USER_AGENT, "Limusic");
+        let mut request = client.get(url).header(reqwest::header::USER_AGENT, "Vibratunes");
         if have > 0 {
             request = request.header(reqwest::header::RANGE, format!("bytes={have}-"));
         }
@@ -294,7 +294,7 @@ async fn fetch_slice(
 
     let request = client
         .get(url)
-        .header(reqwest::header::USER_AGENT, "Limusic")
+        .header(reqwest::header::USER_AGENT, "Vibratunes")
         .header(reqwest::header::RANGE, range);
     let response = tokio::select! {
         _ = cancel.cancelled() => return Err(Error::Cancelled),
