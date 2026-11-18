@@ -114,12 +114,12 @@ YouTube Music client, and grew from there.
 
 <table>
   <tr>
-    <td><img src="website/src/assets/screen-playlist.webp" alt="A playlist in Limusic"></td>
-    <td><img src="website/src/assets/screen-lyrics.webp" alt="Word-by-word synced lyrics"></td>
+    <td><img src="assets/screen-playlist.webp" alt="A playlist in Vibratunes"></td>
+    <td><img src="assets/screen-lyrics.webp" alt="Word-by-word synced lyrics"></td>
   </tr>
   <tr>
-    <td><img src="website/src/assets/screen-album.webp" alt="An album page, colors adapted to the cover"></td>
-    <td><img src="website/src/assets/screen-video.webp" alt="A music video playing with lyrics alongside"></td>
+    <td><img src="assets/screen-album.webp" alt="An album page, colors adapted to the cover"></td>
+    <td><img src="assets/screen-video.webp" alt="A music video playing with lyrics alongside"></td>
   </tr>
 </table>
 

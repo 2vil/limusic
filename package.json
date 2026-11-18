@@ -7,6 +7,9 @@
     "dev:tauri": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo tauri dev",
     "dev:tauri-android": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo tauri android dev",
     "build:tauri": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo tauri build",
-    "build:tauri-android": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo tauri android build"
+    "build:tauri-android": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo tauri android build",
+    "build:install": "bash scripts/dist-install.sh --no-run",
+    "build:install:run": "bash scripts/dist-install.sh",
+    "build:install:android": "bash scripts/dist-install.sh android"
   }
 }
