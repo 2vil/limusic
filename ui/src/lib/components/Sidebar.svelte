@@ -27,7 +27,7 @@
 		DiscordIcon
 	} from '@hugeicons/core-free-icons';
 	import LogoMark from './LogoMark.svelte';
-	import LimusicLoader from './LimusicLoader.svelte';
+	import VibratunesLoader from './VibratunesLoader.svelte';
 	import { playItem } from '$lib/browse';
 	import { toggleMode } from 'mode-watcher';
 	import { Button } from '$lib/components/ui/button';
@@ -360,7 +360,7 @@
 								onclick={() => playRow(pl)}
 							>
 								{#if starting === pl.id}
-									<LimusicLoader class="size-6 text-white" />
+									<VibratunesLoader class="size-6 text-white" />
 								{:else}
 									<!-- altIcon/showAlt, not a ternary: `icon` is read once at mount. -->
 									<HugeiconsIcon

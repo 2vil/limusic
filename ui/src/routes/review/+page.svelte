@@ -54,7 +54,6 @@
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import VibratunesNotice from '$lib/components/VibratunesNotice.svelte';
 	import LyricsView, { prefs as lyricsPrefs, toggle as toggleLyricsPref } from '$lib/components/LyricsView.svelte';
-	import * as api from '$lib/api';
 	import { playback, seekTo, toast } from '$lib/player.svelte';
 	import { limusic, refreshAccount } from '$lib/vibratuneslyrics.svelte';
 	import { currentLocale, t } from '$lib/i18n.svelte';

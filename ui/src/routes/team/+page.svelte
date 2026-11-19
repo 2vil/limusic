@@ -13,7 +13,7 @@
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/player.svelte';
-	import { limusic, refreshAccount } from '$lib/limusic.svelte';
+	import { limusic, refreshAccount } from '$lib/vibratuneslyrics.svelte';
 	import { currentLocale, t, type TranslationKey } from '$lib/i18n.svelte';
 
 	type Member = api.LimusicMember;
