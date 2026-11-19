@@ -1613,3 +1613,38 @@ input[type='range'].range:active::-webkit-slider-thumb {
 		scroll-behavior: auto !important;
 	}
 }
+
+/* ---- Mobile shell (Tousync-style phone layout) ------------------------------------------- */
+/* The Android webview extends under the system bars (MainActivity calls enableEdgeToEdge), so
+   env(safe-area-inset-*) values are real and every fixed mobile surface pads itself with them.
+   100dvh (not 100vh) keeps the shell exactly viewport-sized when the keyboard opens: the virtual
+   keyboard shrinks the dynamic viewport instead of overlapping it. */
+@media (max-width: 767px) {
+	html,
+	body {
+		height: 100dvh;
+		overflow: hidden;
+	}
+
+	body {
+		padding-top: env(safe-area-inset-top, 0px);
+		padding-bottom: env(safe-area-inset-bottom, 0px);
+	}
+
+	/* Native feel: the webview is not a web page — text selection handles fight the touch
+	   gestures and long-press context menus shadow the app's own menus. */
+	body,
+	button,
+	input,
+	select,
+	textarea {
+		user-select: none;
+		-webkit-user-select: none;
+	}
+
+	input,
+	textarea {
+		user-select: text;
+		-webkit-user-select: text;
+	}
+}

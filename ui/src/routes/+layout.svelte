@@ -52,6 +52,9 @@
 	import { initTunnel } from '$lib/tunnel.svelte';
 	import MiniPlayer from '$lib/components/MiniPlayer.svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
+	import MobileAppBar from '$lib/components/mobile/MobileAppBar.svelte';
+	import MiniPlayerBar from '$lib/components/mobile/MiniPlayerBar.svelte';
+	import { mobile } from '$lib/mobile.svelte';
 	import NowPlaying from '$lib/components/NowPlaying.svelte';
 	import TheaterMode from '$lib/components/TheaterMode.svelte';
 	import VideoSurface from '$lib/components/VideoSurface.svelte';
@@ -99,6 +102,9 @@
 		cancelRestore();
 		scroller.scrollTop = 0;
 	});
+	// Mobile AppBar chrome is per-page (Tousync's resetAppUI): clear it so the next route starts
+	// with a clean bar instead of inheriting this page's actions and back behavior.
+	afterNavigate(() => mobile.resetAppUI());
 
 	let { children } = $props();
 	// Queue and lyrics toggle independently and both float over the page rather than docking into
@@ -158,6 +164,10 @@
 	// what tells the two apart: `mini` gets the widget instead of the app chrome, and none of the
 	// routes below it are ever rendered. Constant for the window's lifetime.
 	const isMini = browser && getCurrentWindow().label === 'mini';
+	// The phone shell replaces the desktop one wholesale (Tousync's layout branching): the two
+	// trees are structurally different, so this is a JS switch on a live width, not CSS classes.
+	// The mini window keeps its own branch regardless of its width.
+	const isPhone = $derived(mobile.isMobile && !isMini);
 
 	// Linux: the webview keeps an alpha channel so the desktop shows where the page paints nothing,
 	// and GTK pays for that channel on every frame (lib.rs `set_webview_opaque`, 3.2 ms a frame
@@ -234,6 +244,44 @@
      and no toasts (a banner would cover most of a 560x180 widget). -->
 {#if isMini}
 	<MiniPlayer />
+{:else if isPhone}
+	<!-- The phone shell (Tousync's branching): a structurally different tree — AppBar, content,
+	     mini player, bottom nav — instead of a desktop window squeezed onto a phone. The appbar is
+	     hidden while the now-playing view is up: the view owns the whole screen, including its own
+	     close button (md:hidden). The mini player and the nav hide with it for the same reason.
+	     The scroller keeps the same snapshot binding as the desktop tree, so SvelteKit's scroll
+	     restore works in both. -->
+	<div
+		data-app-shell
+		class="relative flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground"
+	>
+		{#if !np.open}<MobileAppBar />{/if}
+		<div class="relative flex min-h-0 flex-1 flex-col">
+			<main
+				data-app-main
+				class="min-w-0 flex-1 overflow-y-auto"
+				bind:this={scroller}
+				{@attach dragScroll}
+			>
+				{#key `${auth.epoch}:${ui.epoch}`}
+					{@render children()}
+				{/key}
+			</main>
+			{#if np.open && playback.now}<NowPlaying
+					queueOpen={showQueue}
+					lyricsOpen={showLyrics || showComments}
+					onLyrics={() => ((lyricsOpen = true), (commentsOpen = false))}
+				/>{/if}
+			{#if showLyrics}<LyricsPanel onClose={() => (lyricsOpen = false)} queueOpen={showQueue} />{/if}
+			{#if showQueue}<QueuePanel onClose={() => (queueOpen = false)} />{/if}
+		</div>
+		{#if playback.now && !np.open}
+			<MiniPlayerBar />
+		{/if}
+		{#if !np.open}
+			<BottomNav />
+		{/if}
+	</div>
 {:else}
 	<!-- The window itself is transparent; this root paints the background and, when not maximized,
 	     rounds the corners (the compositor can't round an undecorated window for us on Linux).
