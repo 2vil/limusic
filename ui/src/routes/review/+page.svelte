@@ -258,7 +258,7 @@
 		items = without(items, row.revision);
 		count();
 		// The next one nobody else has open, else the one before.
-		const free = (i: api.LimusicQueueItem) => !i.reviewing;
+		const free = (i: api.VibratunesQueueItem) => !i.reviewing;
 		const following = items.slice(at).find(free) ?? items.slice(0, at).findLast(free);
 		if (following) openItem(following);
 		else close();
@@ -420,7 +420,7 @@
 	{/if}
 {/snippet}
 
-{#snippet reviewing(item: api.LimusicQueueItem)}
+{#snippet reviewing(item: api.VibratunesQueueItem)}
 	{#if item.reviewing}
 		<span class="mt-0.5 flex items-center gap-1 truncate text-[12px] font-medium text-primary">
 			<HugeiconsIcon icon={ViewIcon} class="size-3.5 shrink-0" />{t('review.reviewing', { name: item.reviewing })}
@@ -646,7 +646,7 @@
 				</div>
 				{#if taken}
 					<div class="px-6 pb-2.5">
-						<LimusicNotice
+						<VibratunesNotice
 							icon={ViewIcon}
 							title={t('review.taken', { name: taken.by, when: ago(taken.since, Date.now() / 1000, currentLocale.id) })}
 						/>

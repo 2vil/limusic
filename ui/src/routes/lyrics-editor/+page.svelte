@@ -1077,7 +1077,7 @@
 	{#if fixing}
 		<!-- Whose work this is, and what approving does with it. -->
 		<div class="px-6 pb-3">
-			<LimusicNotice
+			<VibratunesNotice
 				icon={PencilEdit02Icon}
 				title={fixing.author ? t('review.fixing_title', { handle: fixing.author }) : t('review.fixing_title_anonymous')}
 				body={t('review.fixing_body')}
@@ -1085,7 +1085,7 @@
 		</div>
 	{:else if rejection && mode !== 'preview'}
 		<div class="px-6 pb-3">
-			<LimusicNotice
+			<VibratunesNotice
 				icon={InformationCircleIcon}
 				title={t('lyrics_editor.rejected_title')}
 				body={rejection.reason ? t('lyrics_editor.rejected_reason', { reason: rejection.reason }) : t('lyrics_editor.rejected_no_reason')}
@@ -1093,7 +1093,7 @@
 				{#snippet actions()}
 					<Button size="sm" variant="ghost" onclick={() => (rejection = null)}>{t('common.close')}</Button>
 				{/snippet}
-			</LimusicNotice>
+			</VibratunesNotice>
 		</div>
 	{/if}
 
