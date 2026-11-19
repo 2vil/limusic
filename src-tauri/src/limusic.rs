@@ -749,7 +749,8 @@ pub(crate) async fn publish_for_test(admin: &str, video_id: &str) -> i64 {
 // For an account `/v1/me` says `can_review`. Every call carries the session; a 401 forgets it.
 
 /// One waiting revision, as the queue lists it. `kind` is `new`, `edit` or `reported` (a live
-/// lyric with enough open reports). `author` is absent for an anonymous sender.
+/// lyric with enough open reports). `author` is absent for an anonymous sender; `reviewing` names
+/// another reviewer who has it open.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct QueueItem {
     pub revision: i64,
@@ -764,6 +765,15 @@ pub struct QueueItem {
     pub created_at: i64,
     #[serde(default)]
     pub reports: i64,
+    #[serde(default)]
+    pub reviewing: Option<String>,
+}
+
+/// Another reviewer's hold on a revision: who, and since when (unix seconds).
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct Claim {
+    pub by: String,
+    pub since: i64,
 }
 
 /// Oldest first. `next` is the `after` of the following page, `None` on the last.
@@ -790,6 +800,14 @@ pub struct Revision {
     pub note: Option<String>,
     pub created_at: i64,
     pub lyrics: Option<Lyrics>,
+    /// The author's revisions that went live and those a reviewer rejected; absent for mirrored ones.
+    pub author_record: Option<Record>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct Record {
+    pub approved: i64,
+    pub rejected: i64,
 }
 
 #[derive(Deserialize)]
@@ -812,6 +830,8 @@ struct RawRevision {
     #[serde(default)]
     note: Option<String>,
     created_at: i64,
+    #[serde(default)]
+    author_record: Option<Record>,
 }
 
 fn parse_revision(body: Value) -> Option<Revision> {
@@ -836,6 +856,7 @@ fn parse_revision(body: Value) -> Option<Revision> {
         note: r.note,
         created_at: r.created_at,
         lyrics: crate::lyrics::limusic_to_lyrics(answer),
+        author_record: r.author_record,
     })
 }
 
@@ -891,10 +912,14 @@ async fn post_verdict(
     revision: i64,
     verdict: &str,
     reason: Option<&str>,
+    lines: Option<&[LyricLine]>,
 ) -> Result<String, String> {
     let mut body = json!({ "verdict": verdict });
     if let Some(r) = clip_reason(reason) {
         body["reason"] = r.into();
+    }
+    if let Some(l) = lines {
+        body["lines"] = json!(l);
     }
     let rb =
         crate::http::client().post(url(&format!("/v1/revisions/{revision}/review"))).json(&body);
@@ -925,6 +950,21 @@ pub async fn review_queue(state: &AppState, after: Option<i64>) -> Result<Queue,
     checked(state, &t, get_queue(&t, after).await)
 }
 
+/// Tell the service which revision this reviewer has open (`None` lets go), so two reviewers don't
+/// work on the same one (#712). `Some` is another reviewer who has it already, and then this one
+/// holds nothing.
+pub async fn review_claim(
+    state: &AppState,
+    revision: Option<i64>,
+) -> Result<Option<Claim>, String> {
+    let t = session(state)?;
+    let rb =
+        crate::http::client().post(url("/v1/review/claim")).json(&json!({ "revision": revision }));
+    let r = expect(send(rb, Some(&t)).await, 200)
+        .map(|b| serde_json::from_value(b["reviewing"].clone()).unwrap_or(None));
+    checked(state, &t, r)
+}
+
 pub async fn review_revision(state: &AppState, revision: i64) -> Result<Revision, String> {
     let t = session(state)?;
     checked(state, &t, get_revision(&t, revision).await)
@@ -937,19 +977,26 @@ pub async fn live_lyrics(video_id: &str) -> Option<Lyrics> {
 
 /// Approve or reject. `Ok` is the status the service reports: `published` for an approval,
 /// `rejected`, or `reverted` for a live lyric that was taken down. An approval puts the lyric in
-/// this device's cache in place of the old one, and a takedown forgets the cached one.
+/// this device's cache in place of the old one, and a takedown forgets the cached one. `lines`,
+/// with an approval of a pending revision, is the reviewer's fix: it goes live in place of what
+/// was sent, still the author's.
 pub async fn review_verdict(
     state: &AppState,
     revision: i64,
     video_id: &str,
     verdict: &str,
     reason: Option<String>,
+    lines: Option<Vec<LyricLine>>,
 ) -> Result<String, String> {
-    if !matches!(verdict, "approve" | "reject") || !plausible_id(video_id) {
+    if !matches!(verdict, "approve" | "reject")
+        || !plausible_id(video_id)
+        || (lines.is_some() && verdict != "approve")
+    {
         return Err("invalid".into());
     }
     let t = session(state)?;
-    let status = checked(state, &t, post_verdict(&t, revision, verdict, reason.as_deref()).await)?;
+    let sent = post_verdict(&t, revision, verdict, reason.as_deref(), lines.as_deref()).await;
+    let status = checked(state, &t, sent)?;
     if verdict == "approve" {
         // The lyric just went live: the next look at this song shows it, not the cached one. The
         // old one goes first, so a failed read of the revision leaves nothing stale behind.
@@ -983,9 +1030,111 @@ pub async fn revert(
     Ok(live)
 }
 
+/// Why a reviewer rejected this account's latest version of the song, when that is the latest and
+/// nothing went live after it. `None` with no session, or nothing to say.
+#[derive(Debug, Serialize, PartialEq)]
+pub struct Rejection {
+    pub reason: Option<String>,
+    pub at: Option<i64>,
+}
+
+fn parse_rejection(body: &Value) -> Option<Rejection> {
+    let r = body.get("my_rejected").filter(|r| r.is_object())?;
+    Some(Rejection {
+        reason: r["reason"].as_str().map(str::to_owned).filter(|s| !s.trim().is_empty()),
+        at: r["at"].as_i64(),
+    })
+}
+
+pub async fn my_rejection(state: &AppState, video_id: &str) -> Option<Rejection> {
+    let t = token(state).filter(|_| plausible_id(video_id))?;
+    let rb = crate::http::client().get(url(&format!("/v1/lyrics/{video_id}/state")));
+    match send(rb, Some(&t)).await {
+        Some((200, body)) => parse_rejection(&body),
+        _ => None,
+    }
+}
+
+// --- Admin ---------------------------------------------------------------------------------------
+// For `role: admin`: who reviews, and bans. The service refuses anyone else with `forbidden`.
+
+/// One linked account as the team page lists it.
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct Member {
+    pub handle: String,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
+    pub role: String,
+    #[serde(default)]
+    pub banned: bool,
+    #[serde(default)]
+    pub score: i64,
+    #[serde(default)]
+    pub approved: i64,
+    #[serde(default)]
+    pub rejected: i64,
+    #[serde(default)]
+    pub joined_at: i64,
+    #[serde(default)]
+    pub you: bool,
+}
+
+/// Staff and the contributors with points for an empty `q`, else the handles that hold it.
+pub async fn admin_accounts(state: &AppState, q: &str) -> Result<Vec<Member>, String> {
+    let t = session(state)?;
+    let rb = crate::http::client().get(url("/v1/admin/accounts")).query(&[("q", q.trim())]);
+    let r = expect(send(rb, Some(&t)).await, 200).and_then(|body| {
+        serde_json::from_value::<Vec<Member>>(body["accounts"].clone())
+            .map_err(|_| "unavailable".into())
+    });
+    checked(state, &t, r)
+}
+
+/// Set a role, ban or unban. `Ok` is the account as it is now.
+pub async fn admin_update(
+    state: &AppState,
+    handle: &str,
+    role: Option<String>,
+    banned: Option<bool>,
+) -> Result<Member, String> {
+    // The handle goes into a path that carries the bearer token.
+    let plausible = (3..=20).contains(&handle.len())
+        && handle.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_');
+    if !plausible || role.as_deref().is_some_and(|r| !matches!(r, "user" | "reviewer" | "admin")) {
+        return Err("invalid".into());
+    }
+    let mut body = json!({});
+    if let Some(r) = role {
+        body["role"] = r.into();
+    }
+    if let Some(b) = banned {
+        body["banned"] = b.into();
+    }
+    let t = session(state)?;
+    let rb = crate::http::client().patch(url(&format!("/v1/admin/accounts/{handle}"))).json(&body);
+    let r = expect(send(rb, Some(&t)).await, 200)
+        .and_then(|v| serde_json::from_value(v).map_err(|_| "unavailable".into()));
+    checked(state, &t, r)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_rejection_is_read_only_when_the_service_names_one() {
+        assert_eq!(parse_rejection(&json!({"my_rejected": null})), None);
+        assert_eq!(parse_rejection(&json!({})), None);
+        assert_eq!(
+            parse_rejection(&json!({"my_rejected": {"revision": 4, "reason": "timing", "at": 9}})),
+            Some(Rejection { reason: Some("timing".into()), at: Some(9) })
+        );
+        // No reason given is still a rejection, with nothing to quote.
+        assert_eq!(
+            parse_rejection(&json!({"my_rejected": {"revision": 4, "reason": " "}})),
+            Some(Rejection { reason: None, at: None })
+        );
+    }
 
     #[test]
     fn the_challenge_is_the_rfc_7636_one_and_the_code_is_its_first_six() {
@@ -1233,7 +1382,10 @@ mod tests {
         let r = get_revision(&admin, revision).await.unwrap();
         assert_eq!(r.lyrics.unwrap().lines.len(), 2);
         assert_eq!(get_revision(&user, revision).await.unwrap_err(), "forbidden");
-        assert_eq!(post_verdict(&admin, revision, "approve", None).await.unwrap(), "published");
+        assert_eq!(
+            post_verdict(&admin, revision, "approve", None, None).await.unwrap(),
+            "published"
+        );
         assert!(get_queue(&admin, None)
             .await
             .unwrap()
@@ -1241,8 +1393,14 @@ mod tests {
             .iter()
             .all(|i| i.revision != revision));
         // Approving the live revision again keeps it (it is how a reported one is cleared).
-        assert_eq!(post_verdict(&admin, revision, "approve", None).await.unwrap(), "published");
-        assert_eq!(post_verdict(&admin, 99999, "approve", None).await.unwrap_err(), "not_found");
+        assert_eq!(
+            post_verdict(&admin, revision, "approve", None, None).await.unwrap(),
+            "published"
+        );
+        assert_eq!(
+            post_verdict(&admin, 99999, "approve", None, None).await.unwrap_err(),
+            "not_found"
+        );
         // An edit from the same anonymous account waits, and a reject carries a reason.
         let mut edited = first.clone();
         edited[1] = line(3000, &["three", "five"]);
@@ -1253,7 +1411,7 @@ mod tests {
         };
         let q = get_queue(&admin, None).await.unwrap();
         assert_eq!(q.items.iter().find(|i| i.revision == edit).unwrap().kind, "edit");
-        let said = post_verdict(&admin, edit, "reject", Some("  the timing is wrong ")).await;
+        let said = post_verdict(&admin, edit, "reject", Some("  the timing is wrong "), None).await;
         assert_eq!(said.unwrap(), "rejected");
         // Revert to no lyric, then the live revision is gone.
         assert_eq!(post_revert(&admin, "CCCCCCCCCCC", None, Some("test")).await.unwrap(), None);

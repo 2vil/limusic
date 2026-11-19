@@ -28,7 +28,9 @@
 //! whether it has the song by now.
 //! A run where every provider merely *errored* (offline) caches nothing, so lyrics come back
 //! when the network does. A song's source picked by hand in the lyrics footer (`choose_source`),
-//! or its timing nudged (`set_offset`), is `pinned` and outlives a change to the order.
+//! or its timing nudged (`set_offset`), is `pinned` and outlives a change to the order. A pinned
+//! Limusic lyric still follows its revisions: picking Limusic picks its lyric, not one version of it
+//! (#722).
 //! Everything is best-effort: a lyrics failure is never a user error.
 
 use std::sync::Arc;
@@ -327,7 +329,7 @@ async fn cached_or_fetched(state: &AppState, req: LyricsRequest) -> Option<Lyric
             if let Some(l) = &cached {
                 refresh_stale(state, &req, l, now - at);
             }
-            return cached.map(unsync_flat);
+            return cached.map(decode_cached).map(unsync_flat);
         }
     }
     // For downloaded tracks: read embedded tag before hitting the network
@@ -356,8 +358,9 @@ enum Recheck {
     Ask,
 }
 
-/// Whether a cached lyric of this age is due a look at Vibratunes. Never a pinned one (picked by
-/// hand or nudged: the user's, not a cache), and never with the Vibratunes source switched off.
+/// Whether a cached lyric of this age is due a look at Vibratunes. Never with the Vibratunes source
+/// switched off, and never a pinned one from another source (picked by hand or nudged: the user's,
+/// not a cache). Vibratunes's own is rechecked pinned or not, since an edit is the same lyric, fixed.
 /// Another source's lyric asks only where a fresh walk down the list would pick Vibratunes's
 /// word-timed answer over it: Vibratunes sits above that source, or the lyric is one `fetch` would
 /// not have stopped at.
@@ -369,11 +372,11 @@ fn recheck_due(
 ) -> Option<Recheck> {
     let at = |id: &str| order.iter().position(|(p, on)| *p == id && *on);
     let limusic = at("limusic")?;
-    if l.pinned {
-        return None;
-    }
     if l.provider == "limusic" {
         return (age_secs > RECHECK_LIMUSIC_SECS).then_some(Recheck::Revision);
+    }
+    if l.pinned {
+        return None;
     }
     let wins = !settles(l, prefer_words) || at(&l.provider).map_or(true, |p| limusic < p);
     (wins && age_secs > RECHECK_OTHER_SECS).then_some(Recheck::Ask)
@@ -422,7 +425,10 @@ fn apply_recheck(
         .get_lyrics(video_id, now, MISS_TTL_SECS)
         .flatten()
         .and_then(|json| serde_json::from_str::<Lyrics>(&json).ok());
-    if !row.is_some_and(|r| !r.pinned && r.provider == old.provider && r.revision == old.revision) {
+    if !row.is_some_and(|r| {
+        (r.pinned, r.offset_ms, &r.provider, r.revision)
+            == (old.pinned, old.offset_ms, &old.provider, old.revision)
+    }) {
         return false;
     }
     match answer {
@@ -441,7 +447,12 @@ fn apply_recheck(
         }
         Ok(Fresh::Gone) => false,
         Ok(Fresh::New(new)) => {
-            let new = Lyrics { provider: "limusic".into(), ..unsync_flat(new) };
+            let mut new =
+                Lyrics { provider: "limusic".into(), pinned: old.pinned, ..unsync_flat(new) };
+            // A nudge was against the old timing: re-timed lines drop it.
+            if new.lines == old.lines {
+                new.offset_ms = old.offset_ms;
+            }
             // A rename shows too: the credit is read when the service answers.
             let changed =
                 new.lines != old.lines || new.source != old.source || new.authors != old.authors;
@@ -533,6 +544,23 @@ fn is_flat(l: &Lyrics) -> bool {
 
 /// Flat lyrics as plain. Applied in `ask`, where every provider's answer passes: LRCLIB and
 /// YouTube declare `synced` themselves rather than going through `from_parsed`.
+/// Lyrics cached before TTML entities were decoded (#695) keep `&apos;` forever otherwise.
+fn decode_cached(mut l: Lyrics) -> Lyrics {
+    let fix = |t: &mut String| {
+        if t.contains('&') {
+            *t = decode_xml_entities(t);
+        }
+    };
+    for line in &mut l.lines {
+        fix(&mut line.text);
+        line.romanized.as_mut().map(fix);
+        for w in line.words.iter_mut().chain(line.romanized_words.iter_mut()).flatten() {
+            fix(&mut w.text);
+        }
+    }
+    l
+}
+
 fn unsync_flat(mut l: Lyrics) -> Lyrics {
     if is_flat(&l) {
         l.synced = false;
@@ -1979,12 +2007,61 @@ fn strip_xml_tags(s: &str) -> String {
             out.push(c);
         }
     }
+    decode_xml_entities(&out)
+}
+
+/// `&apos;` and friends back into text (#695): Apple's TTML escapes every apostrophe. The five
+/// XML names plus numeric references; anything else stays as written.
+fn decode_xml_entities(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(amp) = rest.find('&') {
+        out.push_str(&rest[..amp]);
+        rest = &rest[amp..];
+        let decoded = rest.bytes().take(11).position(|b| b == b';').and_then(|end| {
+            let c = match &rest[1..end] {
+                "amp" => '&',
+                "lt" => '<',
+                "gt" => '>',
+                "quot" => '"',
+                "apos" => '\'',
+                n => {
+                    let n = n.strip_prefix('#')?;
+                    let code = match n.strip_prefix(['x', 'X']) {
+                        Some(hex) => u32::from_str_radix(hex, 16).ok()?,
+                        None => n.parse().ok()?,
+                    };
+                    char::from_u32(code)?
+                }
+            };
+            Some((c, end))
+        });
+        match decoded {
+            Some((c, end)) => {
+                out.push(c);
+                rest = &rest[end + 1..];
+            }
+            None => {
+                out.push('&');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
     out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ttml_decodes_entities() {
+        let xml = r#"<tt><body><div><p begin="1.0" end="3.0"><span begin="1.0" end="2.0">I&apos;m</span> <span begin="2.0" end="3.0">R&amp;B &#8217;&#x2019; &bogus; &</span></p></div></body></tt>"#;
+        let lines = parse_ttml_aaml(xml);
+        assert_eq!(lines[0].text, "I'm R&B \u{2019}\u{2019} &bogus; &");
+        assert_eq!(lines[0].words.as_ref().unwrap()[0].text, "I'm ");
+    }
 
     #[test]
     fn parses_basic_lrc() {
@@ -2325,11 +2402,13 @@ mod tests {
         let theirs = cached("lrclib", false);
         assert_eq!(due(&theirs, 6 * DAY), None);
         assert_eq!(due(&theirs, 7 * DAY + 1), Some(Recheck::Ask));
-        // Pinned (picked by hand, or nudged) is never touched, whatever its age or source.
-        for provider in ["limusic", "lrclib"] {
-            let pinned = Lyrics { pinned: true, ..cached(provider, true) };
-            assert_eq!(due(&pinned, 400 * DAY), None, "{provider}");
-        }
+        // Another source pinned (picked by hand, or nudged) is never touched, whatever its age.
+        let pinned = Lyrics { pinned: true, ..cached("lrclib", true) };
+        assert_eq!(due(&pinned, 400 * DAY), None);
+        // Vibratunes pinned still follows its revisions (#722).
+        let pinned = Lyrics { pinned: true, ..ours.clone() };
+        assert_eq!(due(&pinned, DAY - 1), None);
+        assert_eq!(due(&pinned, DAY + 1), Some(Recheck::Revision));
         // The Vibratunes source switched off is the off switch for this too.
         let off = provider_order(Some("-limusic"));
         assert_eq!(recheck_due(&ours, 9 * DAY, &off, false), None);
@@ -2431,6 +2510,27 @@ mod tests {
         assert!(!apply_recheck(&db, "pinned", Recheck::Revision, &ours, Ok(Fresh::Gone), NOW));
         let (l, _) = row("pinned").unwrap();
         assert_eq!((l.revision, l.offset_ms), (Some(3), 120));
+        // Picked by hand, then edited on the service (#722): the new revision keeps the pin, and
+        // drops the nudge only when the lines moved.
+        let picked = Lyrics { pinned: true, offset_ms: 120, ..ours.clone() };
+        put("picked", &picked);
+        let renamed = Lyrics { authors: vec!["carla".into()], ..ours.clone() };
+        assert!(apply_recheck(
+            &db,
+            "picked",
+            Recheck::Revision,
+            &picked,
+            Ok(Fresh::New(renamed)),
+            NOW
+        ));
+        let (l, _) = row("picked").unwrap();
+        assert_eq!((l.pinned, l.offset_ms), (true, 120));
+        assert!(apply_recheck(&db, "picked", Recheck::Revision, &l, Ok(Fresh::New(newer())), NOW));
+        let (l, _) = row("picked").unwrap();
+        assert_eq!((l.revision, l.pinned, l.offset_ms), (Some(4), true, 0));
+        // Taken down: the pin goes with it, the next look walks the list.
+        assert!(apply_recheck(&db, "picked", Recheck::Revision, &l, Ok(Fresh::Gone), NOW));
+        assert!(row("picked").is_none());
         // Cleared meanwhile: nothing comes back.
         assert!(!apply_recheck(
             &db,

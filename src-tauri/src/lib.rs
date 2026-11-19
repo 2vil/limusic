@@ -2,6 +2,7 @@
 
 mod appicon;
 mod audioproxy;
+mod autopause;
 mod blocked;
 mod cipher;
 mod commands;
@@ -1084,7 +1085,9 @@ pub fn run() {
             let lastfm = lastfm::spawn(
                 handle.clone(),
                 db.get_setting("lastfm_session_key").filter(|s| !s.is_empty()),
-                db.get_setting("listenbrainz_token").filter(|s| !s.is_empty()),
+                db.get_setting("listenbrainz_token").filter(|s| !s.is_empty()).map(|t| {
+                    (db.get_setting("listenbrainz_url").unwrap_or_default(), t)
+                }),
                 lastfm::ScrobbleConfig::load(&db),
             );
 
@@ -1126,6 +1129,12 @@ pub fn run() {
                     downloads.rescan_imported_files().await;
                 });
             }
+
+            app_state.set_auto_pause_enabled(
+                app_state.db.get_setting("auto_pause_other_audio").as_deref() == Some("true"),
+            );
+            autopause::spawn(app_state.clone());
+            import::spawn_auto_updates(app_state.clone());
 
             // The player view's <video> pulls its bytes from Rust over loopback, so the webview
             // never sees a googlevideo URL (context/11). videoproxy.rs explains why a socket and
@@ -1432,6 +1441,7 @@ pub fn run() {
             commands::reset_global_hotkeys,
             commands::get_stream_clients,
             commands::clear_caches,
+            commands::storage_usage,
             commands::set_app_icon,
             commands::app_icon_path,
             commands::get_account,
@@ -1526,6 +1536,7 @@ pub fn run() {
             commands::import_create,
             commands::import_cancel,
             commands::import_source,
+            commands::import_set_auto,
             commands::import_update,
             commands::import_resolve,
             commands::lt_get_state,
@@ -1569,9 +1580,13 @@ pub fn run() {
             commands::limusic_vote,
             commands::limusic_report,
             commands::limusic_review_queue,
+            commands::limusic_review_claim,
             commands::limusic_review_revision,
             commands::limusic_live_lyrics,
             commands::limusic_review,
+            commands::limusic_my_rejection,
+            commands::limusic_admin_accounts,
+            commands::limusic_admin_update,
             commands::limusic_revert,
             commands::lyrics_parse,
             commands::lastfm_connect,
