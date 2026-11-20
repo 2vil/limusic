@@ -453,7 +453,10 @@
 			</div>
 			<!-- Only the open tab is mounted: bits-ui keeps inactive content in the DOM, which would
 			     leave LyricsView fetching lyrics for every track you never asked to see. -->
-			{#if np.tab === 'queue'}
+			{#if np.tab === 'queue' || np.tab === 'track'}
+				<!-- 'track' too: it is the store's starting tab, and the Tabs root maps it to the queue
+				     tab — without this the panel mounts empty until the user picks a tab (the bar
+				     showed File d'attente selected over nothing). -->
 				<Tabs.Content value="queue" class="flex min-h-0 flex-col">
 					<QueueList />
 				</Tabs.Content>
