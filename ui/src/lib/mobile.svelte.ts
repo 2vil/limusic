@@ -46,7 +46,7 @@ class Mobile {
 		back?: boolean;
 		onBack?: () => void;
 		hidden?: boolean;
-		actions?: Array<{ icon: object; label: string; onclick: () => void }>;
+		actions?: Array<{ icon: IconSvgElement; label: string; onclick: () => void }>;
 	}) {
 		if (options.title !== undefined) this.appBarTitle = options.title;
 		if (options.back !== undefined) this.appBarBack = options.back;

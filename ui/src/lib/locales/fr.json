@@ -305,6 +305,9 @@
 		"nothing_playable": "Aucun fichier pris en charge n'a été trouvé dans ces dossiers. Formats acceptés : mp3, flac, m4a, aac, ogg, opus, wav, wma, aiff, ape, wv et mka."
 	},
 	"settings": {
+		"devices": {
+			"scan_qr_hint": "Scannez avec le téléphone : Paramètres › Appareils › Scanner le QR code"
+		},
 		"title": "Paramètres",
 		"tabs": {
 			"general": "Général",

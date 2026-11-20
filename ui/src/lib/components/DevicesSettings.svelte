@@ -19,6 +19,7 @@
 	import { makeInvite } from '$lib/invite';
 	import { thumb } from '$lib/thumb';
 	import { t } from '$lib/i18n.svelte';
+	import { encode } from 'uqr';
 	import type { LinkDevice } from '$lib/api';
 
 	const GROUP = 'mb-7 last:mb-1';
@@ -61,6 +62,20 @@
 	const countdown = $derived(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`);
 	const showCode = $derived(!!link.pairing || requested);
 	const expired = $derived(!!link.pairing && left === 0);
+
+	/// What the phone's scanner reads: the whole invite, `CODE@host` on a custom server and the
+	/// bare code on the default one (invite.ts, parsed the same way on the phone).
+	const invite = $derived(
+		link.pairing && !expired ? makeInvite(link.server, link.pairing.code) : ''
+	);
+	const qr = $derived(invite ? encode(invite) : null);
+	const qrPath = $derived(
+		qr
+			? qr.data
+					.flatMap((row, y) => row.map((on, x) => (on ? `M${x},${y}h1v1h-1z` : '')))
+					.join('')
+			: ''
+	);
 
 	// What this computer is doing, for its own card.
 	const hereStatus = $derived(
@@ -202,6 +217,19 @@
 											>{countdown}</span
 										>
 									</div>
+									<!-- The same invite as a QR: the phone's Devices screen scans it instead of
+									     typing the code. White ground so any camera reads it in either theme. -->
+									{#if qr}
+										<svg
+											viewBox="0 0 {qr.size} {qr.size}"
+											class="ml-auto size-28 shrink-0 rounded-lg bg-white p-1.5"
+											shape-rendering="crispEdges"
+											role="img"
+											aria-label={t('settings.devices.scan_qr_hint')}
+										>
+											<path d={qrPath} fill="black" />
+										</svg>
+									{/if}
 								{/if}
 							</div>
 							{#if expired}

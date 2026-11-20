@@ -22,4 +22,4 @@
 # desktop unusable while it ran. Override per run with `cargo build -j <n>` or
 # `CARGO_BUILD_JOBS=<n>` — this is a default, not a ceiling.
 [build]
-jobs = 3
+jobs = 10

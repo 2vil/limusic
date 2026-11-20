@@ -594,6 +594,7 @@
 			"link_another": "Link another phone",
 			"step_open": "On your phone, open Vibratunes: Settings › Devices",
 			"step_type": "Type this code",
+			"scan_qr_hint": "Scan with the phone: Settings › Devices › Scan the QR code",
 			"custom_server": "On this server, type {invite}",
 			"expires_in": "Expires in {time}",
 			"expired": "This code has expired.",
