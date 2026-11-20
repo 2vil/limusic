@@ -306,7 +306,7 @@
 	},
 	"settings": {
 		"devices": {
-			"scan_qr_hint": "Scannez avec le téléphone : Paramètres › Appareils › Scanner le QR code"
+			"scan_qr_hint": "Scannez ceci avec l'appareil photo du téléphone"
 		},
 		"title": "Paramètres",
 		"tabs": {

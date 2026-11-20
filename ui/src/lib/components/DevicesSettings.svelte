@@ -217,21 +217,27 @@
 											>{countdown}</span
 										>
 									</div>
-									<!-- The same invite as a QR: the phone's Devices screen scans it instead of
-									     typing the code. White ground so any camera reads it in either theme. -->
-									{#if qr}
+								{/if}
+							</div>
+							<!-- The same invite as a QR: the phone's Devices screen scans it instead of
+							     typing the code. Centered on its own line — the tiles already fill the
+							     row — and on a white ground so any camera reads it in either theme. -->
+							{#if qr}
+								<div class="mt-4 flex flex-col items-center gap-1.5">
+									<div class="rounded-lg bg-white p-2 leading-none" title={t('settings.devices.scan_qr_hint')}>
 										<svg
 											viewBox="0 0 {qr.size} {qr.size}"
-											class="ml-auto size-28 shrink-0 rounded-lg bg-white p-1.5"
+											class="size-32"
 											shape-rendering="crispEdges"
 											role="img"
 											aria-label={t('settings.devices.scan_qr_hint')}
 										>
 											<path d={qrPath} fill="black" />
 										</svg>
-									{/if}
-								{/if}
-							</div>
+									</div>
+									<p class="text-xs text-muted-foreground">{t('settings.devices.scan_qr_hint')}</p>
+								</div>
+							{/if}
 							{#if expired}
 								<p class="mt-2 text-xs text-muted-foreground">{t('settings.devices.expired')}</p>
 							{:else if link.pairing && link.server}
