@@ -123,7 +123,7 @@ Type=Application
 Name=Vibratunes
 GenericName=Music Player
 Comment=YouTube Music client with offline downloads
-Exec=vibratunes %u
+Exec=env GDK_BACKEND=x11 vibratunes %u
 Icon=vibratunes
 Terminal=false
 Categories=Audio;Music;AudioVideo;
